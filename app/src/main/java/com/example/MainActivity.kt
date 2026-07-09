@@ -568,27 +568,7 @@ fun ProcessingCard(
     }
 }
 
-fun getBase64FromFile(file: File): String? {
-    return try {
-        val bytes = file.readBytes()
-        android.util.Base64.encodeToString(bytes, android.util.Base64.DEFAULT)
-    } catch (e: Exception) {
-        e.printStackTrace()
-        null
-    }
-}
 
-fun getUriFromBase64(context: Context, base64Str: String, fileName: String): Uri? {
-    return try {
-        val bytes = android.util.Base64.decode(base64Str, android.util.Base64.DEFAULT)
-        val file = File(context.cacheDir, fileName)
-        file.writeBytes(bytes)
-        Uri.fromFile(file)
-    } catch (e: Exception) {
-        e.printStackTrace()
-        null
-    }
-}
 
 @Composable
 fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = "") {
@@ -629,29 +609,47 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
                             val durationMs = document.getLong("mediaDurationMs") ?: 0L
                             val start = document.getDouble("trimRangeStart")?.toFloat() ?: 0f
                             val end = document.getDouble("trimRangeEnd")?.toFloat() ?: durationMs.toFloat()
-                            val audioBase64 = document.getString("audioBase64")
+                            val storagePath = document.getString("audioStoragePath") ?: ""
                             
-                            if (fileName.isNotEmpty() && audioBase64 != null) {
+                            if (fileName.isNotEmpty() && storagePath.isNotEmpty()) {
                                 try {
                                     selectedFileName = fileName
                                     selectedFileSize = fileSize
                                     mediaDurationMs = durationMs
                                     trimRange = start..end
                                     
-                                    val restoredUri = getUriFromBase64(context, audioBase64, fileName)
-                                    if (restoredUri != null) {
-                                        selectedMediaUri = restoredUri
-                                        mediaPlayer.reset()
-                                        mediaPlayer.setDataSource(context, restoredUri)
-                                        mediaPlayer.prepare()
-                                        currentPlaybackPos = start
-                                    }
+                                    val storage = com.google.firebase.storage.FirebaseStorage.getInstance()
+                                    val storageRef = storage.reference.child(storagePath)
+                                    val localFile = File(context.cacheDir, "cloud_$fileName")
+                                    
+                                    storageRef.getFile(localFile)
+                                        .addOnSuccessListener {
+                                            try {
+                                                val restoredUri = Uri.fromFile(localFile)
+                                                selectedMediaUri = restoredUri
+                                                mediaPlayer.reset()
+                                                mediaPlayer.setDataSource(context, restoredUri)
+                                                mediaPlayer.prepare()
+                                                currentPlaybackPos = start
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
+                                            }
+                                            isProcessing = false
+                                        }
+                                        .addOnFailureListener {
+                                            isProcessing = false
+                                            Toast.makeText(context, "Failed to download cloud sound", Toast.LENGTH_SHORT).show()
+                                        }
                                 } catch (e: Exception) {
+                                    isProcessing = false
                                     e.printStackTrace()
                                 }
+                            } else {
+                                isProcessing = false
                             }
+                        } else {
+                            isProcessing = false
                         }
-                        isProcessing = false
                     }
                     .addOnFailureListener {
                         isProcessing = false
@@ -1045,11 +1043,18 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
                                     
                                     currentSystemNotificationSound = getCurrentNotificationSoundName(context)
                                     
-                                    // Clear Firestore preferences document if email is provided
+                                    // Clear Firestore preferences document and delete sound file from Cloud Storage if email is provided
                                     if (userEmail.isNotEmpty()) {
                                         try {
                                             val db = FirebaseFirestore.getInstance()
                                             db.collection("users").document(userEmail).delete()
+                                            
+                                            val safeEmail = userEmail.replace("@", "_").replace(".", "_")
+                                            val storage = com.google.firebase.storage.FirebaseStorage.getInstance()
+                                            storage.reference.child("users/$safeEmail/notification_sound").delete()
+                                                .addOnFailureListener {
+                                                    // ignore if file doesn't exist
+                                                }
                                         } catch (e: Exception) {
                                             e.printStackTrace()
                                         }
@@ -1244,66 +1249,87 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
                 scope.launch {
                     isProcessing = true
                     isPlaying = false
-                    processingStatus = "Slicing audio track segment..."
+                    processingStatus = "Slicing and normalizing audio levels..."
                     
-                    val trimmedFile = File(context.cacheDir, "trimmed_audio_${System.currentTimeMillis()}.m4a")
-                    val normalizedFile = File(context.cacheDir, "normalized_audio_${System.currentTimeMillis()}.m4a")
-                    val success = trimAudio(context, selectedMediaUri!!, trimmedFile, trimRange.start.toLong(), trimRange.endInclusive.toLong())
-                    var finalBase64: String? = null
+                    val processedFile = File(context.cacheDir, "processed_audio_${System.currentTimeMillis()}.m4a")
+                    val success = AudioProcessor.process(
+                        context,
+                        selectedMediaUri!!,
+                        processedFile,
+                        trimRange.start.toLong(),
+                        trimRange.endInclusive.toLong()
+                    )
+                    
+                    val finalUri: Uri
+                    val finalIsExtracted: Boolean
+                    
                     if (success) {
-                        processingStatus = "Applying volume levels normalization..."
-                        val normSuccess = VolumeNormalizer.normalize(context, Uri.fromFile(trimmedFile), normalizedFile)
-                        val finalFile = if (normSuccess) {
-                            processingStatus = "Success! Updating ringtone database..."
-                            normalizedFile
-                        } else {
-                            processingStatus = "Updating ringtone database..."
-                            trimmedFile
-                        }
-                        if (normSuccess) {
-                            Toast.makeText(context, "Volume normalized!", Toast.LENGTH_SHORT).show()
-                        }
-                        setRingtoneFromUri(context, Uri.fromFile(finalFile), isExtracted = true, setAsNotification = setAsNotification, setAsRingtone = setAsRingtone)
-                        finalBase64 = getBase64FromFile(finalFile)
+                        finalUri = Uri.fromFile(processedFile)
+                        finalIsExtracted = true
+                        Toast.makeText(context, "Audio normalized successfully!", Toast.LENGTH_SHORT).show()
                     } else {
-                        Toast.makeText(context, "Trimming failed, setting full audio.", Toast.LENGTH_SHORT).show()
-                        setRingtoneFromUri(context, selectedMediaUri!!, isExtracted = false, setAsNotification = setAsNotification, setAsRingtone = setAsRingtone)
-                        finalBase64 = try {
-                            context.contentResolver.openInputStream(selectedMediaUri!!)?.use { inputStream ->
-                                val bytes = inputStream.readBytes()
-                                android.util.Base64.encodeToString(bytes, android.util.Base64.DEFAULT)
-                            }
-                        } catch (e: Exception) {
-                            null
-                        }
+                        finalUri = selectedMediaUri!!
+                        finalIsExtracted = false
+                        Toast.makeText(context, "Audio processing failed, using original file.", Toast.LENGTH_SHORT).show()
                     }
+                    
+                    setRingtoneFromUri(
+                        context,
+                        finalUri,
+                        isExtracted = finalIsExtracted,
+                        setAsNotification = setAsNotification,
+                        setAsRingtone = setAsRingtone
+                    )
 
-                    // Save to Firestore if email is provided
-                    if (userEmail.isNotEmpty() && finalBase64 != null) {
+                    // Upload to Cloud Storage and save metadata in Firestore if email is provided
+                    if (userEmail.isNotEmpty()) {
+                        processingStatus = "Syncing with cloud storage..."
                         try {
-                            processingStatus = "Syncing with cloud storage..."
-                            val db = FirebaseFirestore.getInstance()
-                            val data = hashMapOf(
-                                "selectedFileName" to selectedFileName,
-                                "selectedFileSize" to selectedFileSize,
-                                "trimRangeStart" to trimRange.start,
-                                "trimRangeEnd" to trimRange.endInclusive,
-                                "mediaDurationMs" to mediaDurationMs,
-                                "audioBase64" to finalBase64,
-                                "lastUpdated" to System.currentTimeMillis()
-                            )
-                            db.collection("users").document(userEmail).set(data)
+                            val safeEmail = userEmail.replace("@", "_").replace(".", "_")
+                            val storage = com.google.firebase.storage.FirebaseStorage.getInstance()
+                            val storageRef = storage.reference.child("users/$safeEmail/notification_sound")
+                            
+                            storageRef.putFile(finalUri)
+                                .addOnSuccessListener {
+                                    val db = FirebaseFirestore.getInstance()
+                                    val data = hashMapOf(
+                                        "selectedFileName" to selectedFileName,
+                                        "selectedFileSize" to selectedFileSize,
+                                        "trimRangeStart" to trimRange.start,
+                                        "trimRangeEnd" to trimRange.endInclusive,
+                                        "mediaDurationMs" to mediaDurationMs,
+                                        "audioStoragePath" to "users/$safeEmail/notification_sound",
+                                        "lastUpdated" to System.currentTimeMillis()
+                                    )
+                                    db.collection("users").document(userEmail).set(data)
+                                        .addOnSuccessListener {
+                                            isProcessing = false
+                                            selectedMediaUri = null
+                                            selectedFileName = ""
+                                            selectedFileSize = ""
+                                            currentSystemNotificationSound = getCurrentNotificationSoundName(context)
+                                        }
+                                        .addOnFailureListener { e ->
+                                            isProcessing = false
+                                            Toast.makeText(context, "Firestore sync failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        }
+                                }
+                                .addOnFailureListener { e ->
+                                    isProcessing = false
+                                    Toast.makeText(context, "Cloud storage upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
                         } catch (e: Exception) {
+                            isProcessing = false
                             e.printStackTrace()
+                            Toast.makeText(context, "Sync error: ${e.message}", Toast.LENGTH_SHORT).show()
                         }
+                    } else {
+                        isProcessing = false
+                        selectedMediaUri = null
+                        selectedFileName = ""
+                        selectedFileSize = ""
+                        currentSystemNotificationSound = getCurrentNotificationSoundName(context)
                     }
-                    
-                    currentSystemNotificationSound = getCurrentNotificationSoundName(context)
-                    
-                    isProcessing = false
-                    selectedMediaUri = null
-                    selectedFileName = ""
-                    selectedFileSize = ""
                 }
             }
 
@@ -1388,61 +1414,7 @@ fun formatTime(ms: Long): String {
 }
 
 
-suspend fun trimAudio(context: Context, inputUri: Uri, outputFile: File, startTimeMs: Long, endTimeMs: Long): Boolean = withContext(Dispatchers.IO) {
-    val extractor = android.media.MediaExtractor()
-    var muxer: android.media.MediaMuxer? = null
-    var trackIndex = -1
-    var muxerTrackIndex = -1
-    try {
-        extractor.setDataSource(context, inputUri, null)
-        for (i in 0 until extractor.trackCount) {
-            val format = extractor.getTrackFormat(i)
-            val mime = format.getString(android.media.MediaFormat.KEY_MIME)
-            if (mime?.startsWith("audio/") == true) {
-                // MediaMuxer only supports specific formats
-                if (mime != "audio/mp4a-latm" && mime != "audio/3gpp" && mime != "audio/amr-wb") {
-                    return@withContext false
-                }
-                extractor.selectTrack(i)
-                trackIndex = i
-                muxer = android.media.MediaMuxer(outputFile.absolutePath, android.media.MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-                muxerTrackIndex = muxer.addTrack(format)
-                break
-            }
-        }
-        if (trackIndex == -1 || muxer == null) return@withContext false
-        muxer.start()
-        extractor.seekTo(startTimeMs * 1000, android.media.MediaExtractor.SEEK_TO_CLOSEST_SYNC)
-        val buffer = java.nio.ByteBuffer.allocate(1024 * 1024)
-        val bufferInfo = android.media.MediaCodec.BufferInfo()
-        var firstSampleTimeUs: Long = -1L
-        while (true) {
-            bufferInfo.size = extractor.readSampleData(buffer, 0)
-            if (bufferInfo.size < 0) break
-            val sampleTime = extractor.sampleTime
-            if (sampleTime > endTimeMs * 1000) break
-            
-            if (firstSampleTimeUs == -1L) {
-                firstSampleTimeUs = sampleTime
-            }
-            
-            bufferInfo.presentationTimeUs = sampleTime - firstSampleTimeUs
-            if (bufferInfo.presentationTimeUs < 0) bufferInfo.presentationTimeUs = 0
-            
-            bufferInfo.offset = 0
-            bufferInfo.flags = extractor.sampleFlags
-            muxer.writeSampleData(muxerTrackIndex, buffer, bufferInfo)
-            extractor.advance()
-        }
-        return@withContext true
-    } catch (e: Exception) {
-        e.printStackTrace()
-        return@withContext false
-    } finally {
-        try { extractor.release() } catch (e: Exception) {}
-        try { muxer?.stop(); muxer?.release() } catch (e: Exception) {}
-    }
-}
+
 
 suspend fun extractAudioFromVideo(context: Context, videoUri: Uri, outputFile: File): Boolean = withContext(Dispatchers.IO) {
     val extractor = android.media.MediaExtractor()
@@ -1474,7 +1446,12 @@ suspend fun extractAudioFromVideo(context: Context, videoUri: Uri, outputFile: F
             if (bufferInfo.size < 0) break
             bufferInfo.presentationTimeUs = extractor.sampleTime
             bufferInfo.offset = 0
-            bufferInfo.flags = extractor.sampleFlags
+            val sampleFlags = extractor.sampleFlags
+            bufferInfo.flags = if ((sampleFlags and android.media.MediaExtractor.SAMPLE_FLAG_SYNC) != 0) {
+                android.media.MediaCodec.BUFFER_FLAG_KEY_FRAME
+            } else {
+                0
+            }
             muxer.writeSampleData(muxerAudioTrackIndex, buffer, bufferInfo)
             extractor.advance()
         }
