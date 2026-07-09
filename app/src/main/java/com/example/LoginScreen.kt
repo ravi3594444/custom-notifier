@@ -23,7 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -37,6 +37,8 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
+import io.github.jan.supabase.auth.providers.OAuth
+import io.github.jan.supabase.auth.providers.google.IDToken
 
 fun getOrCreateGuestId(context: Context): String {
     val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
@@ -53,14 +55,62 @@ fun getOrCreateGuestId(context: Context): String {
 fun LoginScreen(onLoginSuccess: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
-    
+
     var isSignUp by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+
+    // --- Google Sign-In launcher ---------------------------------------------
+    // We use the activity-result API so we don't need to manage request codes
+    // or override onActivityResult in MainActivity. The launcher is created
+    // once per composition; tapping the Google button calls .launch(Unit).
+    val googleSignInClient = remember { GoogleSignInHelper.createClient(context) }
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val task = com.google.android.gms.auth.api.signin.GoogleSignIn
+            .getSignedInAccountFromIntent(result.data)
+        val account = GoogleSignInHelper.getAccountFromTask(task)
+        if (account == null) {
+            Toast.makeText(context, "Google sign-in cancelled.", Toast.LENGTH_SHORT).show()
+            isLoading = false
+            return@rememberLauncherForActivityResult
+        }
+
+        val idToken = account.idToken
+        if (idToken.isNullOrBlank()) {
+            Toast.makeText(
+                context,
+                "Google did not return an ID token. Check your Web Client ID.",
+                Toast.LENGTH_LONG
+            ).show()
+            isLoading = false
+            return@rememberLauncherForActivityResult
+        }
+
+        // Hand the Google ID token to Supabase. Supabase validates it and
+        // issues its own session -- Google itself does not keep the user
+        // signed in after this point.
+        scope.launch {
+            try {
+                SupabaseClientManager.client.auth.signInWith(IDToken) {
+                    this.idToken = idToken
+                }
+                val googleEmail = account.email ?: ""
+                Toast.makeText(context, "Signed in with Google!", Toast.LENGTH_SHORT).show()
+                onLoginSuccess(googleEmail)
+            } catch (e: Exception) {
+                val errMsg = e.localizedMessage ?: "Google sign-in failed."
+                Toast.makeText(context, "Error: $errMsg", Toast.LENGTH_LONG).show()
+            } finally {
+                isLoading = false
+            }
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -82,26 +132,26 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
                     .clip(RoundedCornerShape(24.dp)),
                 contentScale = ContentScale.Crop
             )
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
+
             Text(
                 text = if (isSignUp) "Create Account" else "Welcome Back",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
                 text = if (isSignUp) "Sign up to sync your custom sounds" else "Log in to access your soundboard",
                 fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            
+
             Spacer(modifier = Modifier.height(32.dp))
-            
+
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
@@ -112,9 +162,9 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp)
             )
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
@@ -132,7 +182,7 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp)
             )
-            
+
             AnimatedVisibility(
                 visible = isSignUp,
                 enter = fadeIn() + expandVertically(),
@@ -153,9 +203,9 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
+
             if (isLoading) {
                 CircularProgressIndicator()
             } else {
@@ -214,15 +264,76 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text(
-                        text = if (isSignUp) "Sign Up" else "Sign In", 
-                        fontSize = 16.sp, 
+                        text = if (isSignUp) "Sign Up" else "Sign In",
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
-            
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // --- Divider with "or" ------------------------------------------------
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                HorizontalDivider(modifier = Modifier.weight(1f))
+                Text(
+                    text = "or",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+                HorizontalDivider(modifier = Modifier.weight(1f))
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // --- Sign in with Google button --------------------------------------
+            OutlinedButton(
+                onClick = {
+                    // Always sign out first so the account picker shows up
+                    // every time (otherwise Google silently re-uses the last
+                    // account, which is confusing for users with multiple
+                    // Google accounts on the device).
+                    googleSignInClient.signOut().addOnCompleteListener {
+                        isLoading = true
+                        val signInIntent = googleSignInClient.signInIntent
+                        googleSignInLauncher.launch(signInIntent)
+                    }
+                },
+                enabled = !isLoading,
+                modifier = Modifier.fillMaxWidth().height(54.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = Color.White,
+                    contentColor = Color(0xFF1F1F1F)
+                ),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+                )
+            ) {
+                // Inline "G" logo drawn as a small box so we don't need an
+                // extra image asset -- matches the standard Google brand
+                // colors. Drawn as a Row of 4 letterspans for simplicity.
+                Text(
+                    text = "G",
+                    color = Color(0xFF4285F4),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isSignUp) "Sign up with Google" else "Sign in with Google",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
@@ -243,9 +354,9 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
                         .padding(4.dp)
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(32.dp))
-            
+
             TextButton(
                 onClick = { onLoginSuccess(getOrCreateGuestId(context)) },
                 modifier = Modifier.fillMaxWidth()
