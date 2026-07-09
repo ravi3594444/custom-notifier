@@ -426,19 +426,30 @@ class NotificationSetterViewModel : ViewModel() {
         val appContext = context.applicationContext
         _isProcessing.value = true
         _processingStatus.value = "Loading sound preferences..."
-        
-        // 1. Load from local SharedPreferences instantly for best offline responsiveness
-        val hasLocal = loadLocalPreference(appContext, userEmail)
-        if (hasLocal) {
-            _isProcessing.value = false
-        }
 
-        // 2. Query Supabase for cloud sync (only if not guest account)
-        if (!userEmail.startsWith("guest_")) {
-            viewModelScope.launch {
-                try {
-                    val pref = withContext(Dispatchers.IO) {
-                        try {
+        // Everything here runs on Dispatchers.IO because:
+        //  - loadLocalPreference calls mediaPlayer.setDataSource / prepare(),
+        //    which do file IO + media extraction and MUST NOT run on the
+        //    main thread (causes ANR -> system kills the app).
+        //  - Supabase calls are network IO.
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // 1. Load from local SharedPreferences instantly for best
+                //    offline responsiveness.
+                val hasLocal = try {
+                    loadLocalPreference(appContext, userEmail)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    false
+                }
+                if (hasLocal) {
+                    _isProcessing.value = false
+                }
+
+                // 2. Query Supabase for cloud sync (only if not guest account)
+                if (!userEmail.startsWith("guest_")) {
+                    try {
+                        val pref = try {
                             SupabaseClientManager.client.postgrest["user_preferences"]
                                 .select {
                                     filter {
@@ -449,20 +460,18 @@ class NotificationSetterViewModel : ViewModel() {
                             e.printStackTrace()
                             null
                         }
-                    }
 
-                    if (pref != null) {
-                        // Only override if local values are different or non-existent
-                        if (_selectedFileName.value != pref.selected_file_name) {
-                            _processingStatus.value = "Downloading cloud sound file..."
-                            val localFile = File(appContext.cacheDir, "cloud_${pref.selected_file_name}")
-                            withContext(Dispatchers.IO) {
+                        if (pref != null) {
+                            // Only override if local values are different or non-existent
+                            if (_selectedFileName.value != pref.selected_file_name) {
+                                _processingStatus.value = "Downloading cloud sound file..."
+                                val localFile = File(appContext.cacheDir, "cloud_${pref.selected_file_name}")
                                 try {
                                     val bucket = SupabaseClientManager.client.storage["sounds"]
                                     val safeEmail = userEmail.replace("@", "_").replace(".", "_")
                                     val bytes = bucket.downloadPublic("users/$safeEmail/notification_sound")
                                     localFile.writeBytes(bytes)
-                                    
+
                                     val restoredUri = Uri.fromFile(localFile)
                                     _selectedMediaUri.value = restoredUri
                                     _selectedFileName.value = pref.selected_file_name
@@ -472,28 +481,31 @@ class NotificationSetterViewModel : ViewModel() {
                                     _fadeInSec.value = pref.fade_in_sec
                                     _fadeOutSec.value = pref.fade_out_sec
                                     _volumeBoost.value = pref.volume_boost
-                                    
+
                                     mediaPlayer.reset()
                                     mediaPlayer.setDataSource(appContext, restoredUri)
                                     mediaPlayer.prepare()
                                     _currentPlaybackPos.value = pref.trim_range_start
                                     mediaPlayer.seekTo(pref.trim_range_start.toInt())
-                                    
+
                                     saveLocalPreference(appContext, userEmail)
                                 } catch (e: Exception) {
                                     e.printStackTrace()
                                 }
                             }
                         }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    } finally {
+                        _isProcessing.value = false
                     }
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                } finally {
+                } else {
                     _isProcessing.value = false
                 }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _isProcessing.value = false
             }
-        } else {
-            _isProcessing.value = false
         }
     }
 

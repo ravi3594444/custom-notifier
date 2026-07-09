@@ -123,10 +123,20 @@ class MainActivity : ComponentActivity() {
                             SplashScreen(onLoadingFinished = {
                                 val sessionPrefs = context.getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
                                 val loggedInUser = sessionPrefs.getString("logged_in_user", null)
-                                val auth = SupabaseClientManager.client.auth
-                                val currentUser = auth.currentUserOrNull()
-                                
-                                val targetUser = loggedInUser ?: currentUser?.email
+
+                                // Try to get the Supabase current user, but don't crash
+                                // if Supabase isn't configured properly (e.g. the URL is
+                                // still the placeholder, or the key is invalid, or there's
+                                // no network). If anything goes wrong, fall back to the
+                                // locally-saved logged-in user (which may be null).
+                                val supabaseEmail = try {
+                                    SupabaseClientManager.client.auth.currentUserOrNull()?.email
+                                } catch (e: Exception) {
+                                    android.util.Log.e("MainActivity", "Supabase auth check failed: ${e.message}", e)
+                                    null
+                                }
+
+                                val targetUser = loggedInUser ?: supabaseEmail
                                 if (targetUser != null && targetUser.isNotBlank()) {
                                     navController.navigate("home/$targetUser") {
                                         popUpTo("splash") { inclusive = true }
