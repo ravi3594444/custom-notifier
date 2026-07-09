@@ -41,6 +41,15 @@ class NotificationSetterViewModel : ViewModel() {
     private val _trimRange = MutableStateFlow(0f..100f)
     val trimRange: StateFlow<ClosedFloatingPointRange<Float>> = _trimRange.asStateFlow()
 
+    private val _fadeInSec = MutableStateFlow(0f)
+    val fadeInSec: StateFlow<Float> = _fadeInSec.asStateFlow()
+
+    private val _fadeOutSec = MutableStateFlow(0f)
+    val fadeOutSec: StateFlow<Float> = _fadeOutSec.asStateFlow()
+
+    private val _volumeBoost = MutableStateFlow(1.0f)
+    val volumeBoost: StateFlow<Float> = _volumeBoost.asStateFlow()
+
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
 
@@ -62,6 +71,18 @@ class NotificationSetterViewModel : ViewModel() {
 
     fun updateTrimRange(range: ClosedFloatingPointRange<Float>) {
         _trimRange.value = range
+    }
+
+    fun updateFadeInSec(value: Float) {
+        _fadeInSec.value = value
+    }
+
+    fun updateFadeOutSec(value: Float) {
+        _fadeOutSec.value = value
+    }
+
+    fun updateVolumeBoost(value: Float) {
+        _volumeBoost.value = value
     }
 
     fun seekTo(position: Float) {
@@ -259,6 +280,9 @@ class NotificationSetterViewModel : ViewModel() {
         _mediaDurationMs.value = 0L
         _trimRange.value = 0f..100f
         _currentPlaybackPos.value = 0f
+        _fadeInSec.value = 0f
+        _fadeOutSec.value = 0f
+        _volumeBoost.value = 1.0f
     }
 
     private fun startPlaybackProgressTicker() {
@@ -299,7 +323,10 @@ class NotificationSetterViewModel : ViewModel() {
                 _selectedMediaUri.value!!,
                 processedFile,
                 _trimRange.value.start.toLong(),
-                _trimRange.value.endInclusive.toLong()
+                _trimRange.value.endInclusive.toLong(),
+                fadeInMs = (_fadeInSec.value * 1000).toLong(),
+                fadeOutMs = (_fadeOutSec.value * 1000).toLong(),
+                volumeMultiplier = _volumeBoost.value
             )
             
             val finalUri: Uri

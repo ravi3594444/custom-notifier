@@ -20,7 +20,10 @@ object AudioProcessor {
         inputUri: Uri,
         outputFile: File,
         startTimeMs: Long,
-        endTimeMs: Long
+        endTimeMs: Long,
+        fadeInMs: Long = 0L,
+        fadeOutMs: Long = 0L,
+        volumeMultiplier: Float = 1.0f
     ): Boolean = withContext(Dispatchers.IO) {
         val extractor = MediaExtractor()
         var decoder: MediaCodec? = null
@@ -157,6 +160,35 @@ object AudioProcessor {
             for (i in shorts.indices) {
                 val normalized = (shorts[i] * cappedGain).toInt()
                 shorts[i] = normalized.coerceIn(-32768, 32767).toShort()
+            }
+
+            // Apply manual volume multiplier (Volume Booster)
+            if (volumeMultiplier != 1.0f) {
+                for (i in shorts.indices) {
+                    val scaled = (shorts[i] * volumeMultiplier).toInt()
+                    shorts[i] = scaled.coerceIn(-32768, 32767).toShort()
+                }
+            }
+
+            // Apply fade-in effect
+            if (fadeInMs > 0L) {
+                val fadeInSamples = ((fadeInMs * sampleRate * channelCount) / 1000L).toInt()
+                val limit = Math.min(fadeInSamples, shorts.size)
+                for (i in 0 until limit) {
+                    val factor = i.toDouble() / fadeInSamples
+                    shorts[i] = (shorts[i] * factor).toInt().toShort()
+                }
+            }
+
+            // Apply fade-out effect
+            if (fadeOutMs > 0L) {
+                val fadeOutSamples = ((fadeOutMs * sampleRate * channelCount) / 1000L).toInt()
+                val startFadeOut = Math.max(0, shorts.size - fadeOutSamples)
+                for (i in startFadeOut until shorts.size) {
+                    val remaining = shorts.size - 1 - i
+                    val factor = remaining.toDouble() / fadeOutSamples
+                    shorts[i] = (shorts[i] * factor).toInt().toShort()
+                }
             }
 
             // 3. Initialize and run AAC Encoder to write to outputFile
