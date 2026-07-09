@@ -37,6 +37,22 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import java.util.UUID
+
+/**
+ * Returns a stable per-device id for guest (offline) access, generating and
+ * persisting one on first use. Previously all guests shared the literal
+ * string "guest@example.com" as their Firestore document id, meaning every
+ * guest on every device read and overwrote the same cloud preferences doc.
+ */
+private fun getOrCreateGuestId(context: android.content.Context): String {
+    val prefs = context.getSharedPreferences("guest_prefs", android.content.Context.MODE_PRIVATE)
+    val existing = prefs.getString("guest_id", null)
+    if (existing != null) return existing
+    val newId = "guest_${UUID.randomUUID()}"
+    prefs.edit().putString("guest_id", newId).apply()
+    return newId
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -418,7 +434,7 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
 
                 TextButton(
                     onClick = {
-                        onLoginSuccess("guest@example.com")
+                        onLoginSuccess(getOrCreateGuestId(context))
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
