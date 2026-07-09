@@ -638,7 +638,7 @@ fun NotificationSetterScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.app_logo_icon_1783527284606),
+                        painter = painterResource(id = R.drawable.custom_notifier_icon_1783452599256),
                         contentDescription = "App Logo",
                         modifier = Modifier
                             .size(80.dp)
@@ -1274,7 +1274,7 @@ fun DeveloperVersionScreen(
             contentAlignment = Alignment.Center
         ) {
             Image(
-                painter = painterResource(id = R.drawable.app_logo_icon_1783527284606),
+                painter = painterResource(id = R.drawable.custom_notifier_icon_1783452599256),
                 contentDescription = "Ravi Notifier Logo",
                 modifier = Modifier
                     .fillMaxSize()
