@@ -37,26 +37,23 @@ jobs:
         # in supabase_setup.sql protect the data -- each authenticated
         # user can only read/write their own row. The service_role key
         # (which bypasses RLS) must NEVER be put here.
-        #
-        # If you fork this repo, replace these with your own Supabase
-        # project's anon key + URL, or set SUPABASE_URL / SUPABASE_KEY
-        # in GitHub Secrets and the block below will use those instead.
-        env:
-          FALLBACK_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          FALLBACK_SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          # Prefer GitHub Secrets if they exist (lets forks override),
-          # otherwise use the hardcoded defaults below.
-          URL="${FALLBACK_SUPABASE_URL:-https://hhwwevlstzuvjpewkaiz.supabase.co}"
-          KEY="${FALLBACK_SUPABASE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhod3dldmxzdHp1dmpwZXdrYWl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2MDI4OTQsImV4cCI6MjA5OTE3ODg5NH0.Jpjy0gN_PiKGFmuJUbMBTMrYGECStXoKKz4YmVmLib0}"
+          # Hardcoded, verified-working credentials for this Supabase project.
+          # We intentionally do NOT read from GitHub Secrets here because the
+          # secrets are easy to mis-type (e.g. appending /auth/v1 to the URL,
+          # which makes the Supabase Kotlin SDK throw
+          # "The Supabase URL should not contain (auth/v1)"). The anon key
+          # is safe to hardcode -- it's in every APK we ship anyway.
+          URL="https://hhwwevlstzuvjpewkaiz.supabase.co"
+          KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhod3dldmxzdHp1dmpwZXdrYWl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2MDI4OTQsImV4cCI6MjA5OTE3ODg5NH0.Jpjy0gN_PiKGFmuJUbMBTMrYGECStXoKKz4YmVmLib0"
           # IMPORTANT: do NOT put comments or blank lines in the .env file.
           # The secrets-gradle-plugin parses .env as a Java properties file
           # and some versions choke on inline comments or extra whitespace.
           # Only KEY=VALUE lines, nothing else.
           printf 'GEMINI_API_KEY=placeholder_api_key\nSUPABASE_URL=%s\nSUPABASE_KEY=%s\n' "$URL" "$KEY" > .env
           echo "Wrote .env with SUPABASE_URL=$URL"
-          # Sanity-check the file so we catch any quoting bug in CI logs
-          # (without leaking the key):
+          # Sanity-check the file (key redacted) so we can see exactly
+          # what got written in the CI logs.
           echo "--- .env contents (key redacted) ---"
           sed 's/\(SUPABASE_KEY=\).*/\1<redacted>/' .env
 
