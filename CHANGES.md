@@ -114,6 +114,73 @@ SUPABASE_KEY=eyJhbGciOiJI...your-anon-public-key-here...JP_OCi8XwnQ
 
 ---
 
+## "My Sounds" library (History) — added in a later commit
+
+The app now keeps a personal library of every custom sound the user has
+created, so they can switch between ringtones with one tap — no re-trim
+needed.
+
+### How it works
+
+- Every time the user taps **Notification** or **Call Ringtone** in the
+  Sound Customizer, after the audio is processed the resulting `.m4a` file
+  is **copied into a permanent directory** (`filesDir/saved_sounds/`) and
+  a `SavedSound` entry is appended to a per-user JSON index file
+  (`filesDir/sound_library_<user>.json`).
+- A new **"My Sounds"** tab in the navigation drawer lists every saved
+  sound with: original filename, post-trim duration, file size, date
+  created, last-applied-as badge (Notification / Ringtone / Both), and
+  any fade / volume settings used.
+- Each row has three actions:
+  - **Preview (▶ / ⏸)** — plays the saved file in-app so the user can
+    audition it before re-applying.
+  - **Notification** — re-applies the sound as the system notification
+    sound in one tap. No re-processing, no re-trim.
+  - **Ringtone** — re-applies as the call ringtone.
+  - **Delete (🗑)** — two-tap delete (tap once shows a "Confirm" button,
+    tap again to actually delete). Removes the entry AND deletes the
+    underlying file from disk.
+- The library is **per-user** — signing out and signing in as a different
+  user shows the right library.
+
+### Files added / changed
+
+| File | Purpose |
+| --- | --- |
+| `SavedSound.kt` (new) | `SavedSound` data class + `SoundLibraryManager` (atomic JSON load / save / add / remove / update) |
+| `MySoundsScreen.kt` (new) | Compose UI: list, empty state, preview, apply, delete |
+| `NotificationSetterViewModel.kt` | Added `savedSounds` / `previewingSoundId` state flows; `loadSoundLibrary`, `togglePreview`, `stopPreview`, `applySavedSound`, `deleteSavedSound`, `saveProcessedToLibrary`; auto-saves on every successful `processAudioAndSet` |
+| `MainActivity.kt` | Added "My Sounds" drawer item + `library` screen branch; pre-loads library on sign-in |
+| `CHANGES.md` | This section |
+
+### Storage decisions
+
+- **Plain JSON file instead of Room.** The library is small (typically
+  5–50 entries per user) and we already use kotlinx.serialization. Adding
+  Room + KSP would add compile time and config complexity for no real
+  benefit at this scale.
+- **Per-user index file.** `sound_library_<safe_email>.json` so signing
+  in as a different user sees the right library. The actual audio bytes
+  live in a shared `saved_sounds/` directory keyed by `SavedSound.id`
+  in the filename, so different users' files never collide.
+- **Atomic writes.** `SoundLibraryManager.saveAll` writes to a `.tmp`
+  file first and renames, so a crash mid-write never leaves a truncated
+  index.
+- **Local-only for now.** The library is NOT synced to Supabase — only
+  the *currently-active* sound is synced (via the existing
+  `user_preferences` table). Cross-device library sync can be added
+  later if needed.
+
+### Bug fixed along the way
+
+The previous Supabase-upload code read `_selectedFileName.value`,
+`_selectedFileSize.value`, `_trimRange.value.start`, etc. **after**
+`clearSelectedFile()` had already wiped them — so the cloud row was
+always saved with empty filename / zero trim range / zero duration.
+Fixed by capturing all editor state into local vals *before* clearing.
+
+---
+
 ## What you need to do after pulling these changes
 
 1. **Run `supabase_setup.sql`** in your Supabase project's SQL Editor (just
@@ -131,6 +198,9 @@ SUPABASE_KEY=eyJhbGciOiJI...your-anon-public-key-here...JP_OCi8XwnQ
    - actually set your custom sound as the system default without you having
      to go to System Sound Settings (this commit's `RingtoneUtils` fix),
    - upload a different file to the cloud successfully (replacing the previous
-     one — already fixed in the previous commit),
+     one — already fixed in the previous commit, plus a latent bug where
+     the cloud row got empty values is now fixed),
    - cap the volume slider at 100% instead of 1000% (already fixed in the
-     previous commit).
+     previous commit),
+   - **keep a personal "My Sounds" library** so you can re-apply any
+     previously-created sound in one tap (this commit's addition).

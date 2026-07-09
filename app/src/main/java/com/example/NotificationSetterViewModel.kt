@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.UUID
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.storage.storage
 import kotlinx.serialization.Serializable
@@ -78,6 +79,18 @@ class NotificationSetterViewModel : ViewModel() {
     private val _currentScreen = MutableStateFlow("customizer")
     val currentScreen: StateFlow<String> = _currentScreen.asStateFlow()
 
+    // --- "My Sounds" library state -----------------------------------------
+    // Holds the list of sounds the user has previously created. Updated
+    // automatically whenever processAudioAndSet() runs, and also when the
+    // user re-opens the app (loadSoundLibrary is called from the screen).
+    private val _savedSounds = MutableStateFlow<List<SavedSound>>(emptyList())
+    val savedSounds: StateFlow<List<SavedSound>> = _savedSounds.asStateFlow()
+
+    // The id of the sound currently being previewed from the library, or
+    // null if none. Used by the UI to show a "Stop" button on the row.
+    private val _previewingSoundId = MutableStateFlow<String?>(null)
+    val previewingSoundId: StateFlow<String?> = _previewingSoundId.asStateFlow()
+
     private val mediaPlayer = MediaPlayer()
     private var playbackJob: Job? = null
 
@@ -119,6 +132,188 @@ class NotificationSetterViewModel : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             val name = RingtoneUtils.getCurrentNotificationSoundName(appContext)
             _currentSystemNotificationSound.value = name
+        }
+    }
+
+    // =========================================================================
+    // "My Sounds" library
+    // =========================================================================
+
+    /**
+     * Loads the user's saved-sound library into [_savedSounds]. Called when
+     * the user opens the "My Sounds" screen and also after sign-in.
+     */
+    fun loadSoundLibrary(context: Context, userEmail: String) {
+        val appContext = context.applicationContext
+        viewModelScope.launch(Dispatchers.IO) {
+            _savedSounds.value = SoundLibraryManager.loadAll(appContext, userEmail)
+        }
+    }
+
+    /**
+     * Toggles preview playback for a saved sound. Tapping the same row
+     * twice stops the preview. Tapping a different row switches to it.
+     */
+    fun togglePreview(context: Context, sound: SavedSound) {
+        val appContext = context.applicationContext
+        if (_previewingSoundId.value == sound.id) {
+            stopPreview()
+            return
+        }
+        stopPreview()
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    mediaPlayer.reset()
+                    mediaPlayer.setDataSource(appContext, Uri.fromFile(File(sound.localFilePath)))
+                    mediaPlayer.prepare()
+                    mediaPlayer.setOnCompletionListener {
+                        _isPlaying.value = false
+                        _previewingSoundId.value = null
+                    }
+                    mediaPlayer.start()
+                }
+                _isPlaying.value = true
+                _previewingSoundId.value = sound.id
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(appContext, "Could not play this sound.", Toast.LENGTH_SHORT).show()
+                }
+                _previewingSoundId.value = null
+            }
+        }
+    }
+
+    /** Stops any library preview that's currently playing. */
+    fun stopPreview() {
+        try {
+            if (mediaPlayer.isPlaying) mediaPlayer.pause()
+            mediaPlayer.reset()
+        } catch (_: Exception) {}
+        _isPlaying.value = false
+        _previewingSoundId.value = null
+    }
+
+    /**
+     * Re-applies a previously-saved sound as the system default without
+     * re-trimming or re-processing. The saved file already has all the
+     * user's trim / fade / volume settings baked in.
+     */
+    fun applySavedSound(
+        context: Context,
+        userEmail: String,
+        sound: SavedSound,
+        setAsNotification: Boolean,
+        setAsRingtone: Boolean
+    ) {
+        val appContext = context.applicationContext
+        val file = File(sound.localFilePath)
+        if (!file.exists()) {
+            viewModelScope.launch {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(appContext, "Saved file is missing — re-create it in the editor.", Toast.LENGTH_LONG).show()
+                }
+                // Drop the stale entry so the list isn't full of dead rows.
+                _savedSounds.value = SoundLibraryManager.remove(appContext, userEmail, sound.id)
+            }
+            return
+        }
+        viewModelScope.launch {
+            _isProcessing.value = true
+            _processingStatus.value = "Applying saved sound..."
+            try {
+                withContext(Dispatchers.IO) {
+                    RingtoneUtils.setRingtoneFromUri(
+                        appContext,
+                        Uri.fromFile(file),
+                        isExtracted = true,
+                        setAsNotification = setAsNotification,
+                        setAsRingtone = setAsRingtone
+                    )
+                }
+                // Update the "last applied as" badge on the entry.
+                val newBadge = when {
+                    setAsNotification && setAsRingtone -> "both"
+                    setAsRingtone -> "ringtone"
+                    else -> "notification"
+                }
+                val updated = sound.copy(lastAppliedAs = newBadge)
+                _savedSounds.value = SoundLibraryManager.update(appContext, userEmail, updated)
+                refreshNotificationSoundName(appContext)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(appContext, "Failed to apply: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } finally {
+                _isProcessing.value = false
+            }
+        }
+    }
+
+    /** Permanently removes a sound from the library and deletes its file. */
+    fun deleteSavedSound(context: Context, userEmail: String, sound: SavedSound) {
+        val appContext = context.applicationContext
+        if (_previewingSoundId.value == sound.id) stopPreview()
+        viewModelScope.launch(Dispatchers.IO) {
+            _savedSounds.value = SoundLibraryManager.remove(appContext, userEmail, sound.id)
+        }
+    }
+
+    /**
+     * Copies the processed audio file into the user's permanent saved_sounds
+     * directory and appends a [SavedSound] entry to the library index. Called
+     * automatically at the end of [processAudioAndSet]. Safe to call from any
+     * dispatcher -- does disk IO on Dispatchers.IO.
+     *
+     * Returns the entry that was added, or null if saving failed.
+     */
+    private suspend fun saveProcessedToLibrary(
+        context: Context,
+        userEmail: String,
+        processedFile: File,
+        originalFileName: String,
+        durationMs: Long,
+        setAsNotification: Boolean,
+        setAsRingtone: Boolean
+    ): SavedSound? = withContext(Dispatchers.IO) {
+        try {
+            val id = UUID.randomUUID().toString()
+            val dir = SoundLibraryManager.savedSoundsDir(context)
+            // Use the same extension as the processed file (.m4a) so the
+            // MediaPlayer / MediaStore are happy later.
+            val ext = processedFile.extension.ifBlank { "m4a" }
+            val savedFile = File(dir, "sound_${id}.$ext")
+            processedFile.inputStream().use { input ->
+                savedFile.outputStream().use { output -> input.copyTo(output) }
+            }
+
+            val badge = when {
+                setAsNotification && setAsRingtone -> "both"
+                setAsRingtone -> "ringtone"
+                else -> "notification"
+            }
+
+            val entry = SavedSound(
+                id = id,
+                displayName = originalFileName.ifBlank { "Custom Sound" },
+                localFilePath = savedFile.absolutePath,
+                fileSizeBytes = savedFile.length(),
+                durationMs = durationMs,
+                trimRangeStart = _trimRange.value.start,
+                trimRangeEnd = _trimRange.value.endInclusive,
+                fadeInSec = _fadeInSec.value,
+                fadeOutSec = _fadeOutSec.value,
+                volumeBoost = _volumeBoost.value,
+                createdAt = System.currentTimeMillis(),
+                lastAppliedAs = badge
+            )
+            _savedSounds.value = SoundLibraryManager.add(context, userEmail, entry)
+            entry
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
         }
     }
 
@@ -496,6 +691,33 @@ class NotificationSetterViewModel : ViewModel() {
                 )
             }
 
+            // --- "My Sounds" library: copy the processed file into the
+            // user's permanent saved_sounds/ directory and append an entry
+            // to their library index. Only do this when processing actually
+            // succeeded — on failure we used the original file and there's
+            // no new artifact to save.
+            if (success) {
+                saveProcessedToLibrary(
+                    appContext, userEmail,
+                    processedFile,
+                    _selectedFileName.value,
+                    _mediaDurationMs.value,
+                    setAsNotification,
+                    setAsRingtone
+                )
+            }
+
+            // Capture editor state BEFORE clearSelectedFile() wipes it,
+            // so the Supabase upload below has correct values to send.
+            val capturedFileName = _selectedFileName.value
+            val capturedFileSize = _selectedFileSize.value
+            val capturedTrimStart = _trimRange.value.start
+            val capturedTrimEnd = _trimRange.value.endInclusive
+            val capturedDurationMs = _mediaDurationMs.value
+            val capturedFadeIn = _fadeInSec.value
+            val capturedFadeOut = _fadeOutSec.value
+            val capturedVolumeBoost = _volumeBoost.value
+
             // Always save preferences locally first
             saveLocalPreference(appContext, userEmail)
 
@@ -503,8 +725,10 @@ class NotificationSetterViewModel : ViewModel() {
             clearSelectedFile()
             refreshNotificationSoundName(appContext)
 
-            // Sync to Supabase in background if user is not a guest
-            if (userEmail.isNotEmpty() && !userEmail.startsWith("guest_")) {
+            // Sync to Supabase in background if user is not a guest.
+            // Only upload if processing succeeded -- on failure processedFile
+            // may not exist and there's nothing new to sync anyway.
+            if (success && userEmail.isNotEmpty() && !userEmail.startsWith("guest_")) {
                 launch(Dispatchers.IO) {
                     try {
                         val safeEmail = userEmail.replace("@", "_").replace(".", "_")
@@ -513,17 +737,17 @@ class NotificationSetterViewModel : ViewModel() {
                         bucket.upload("users/$safeEmail/notification_sound", bytes) {
                             upsert = true
                         }
-                        
+
                         val pref = UserSoundPreference(
                             email = userEmail,
-                            selected_file_name = _selectedFileName.value,
-                            selected_file_size = _selectedFileSize.value,
-                            trim_range_start = _trimRange.value.start,
-                            trim_range_end = _trimRange.value.endInclusive,
-                            media_duration_ms = _mediaDurationMs.value,
-                            fade_in_sec = _fadeInSec.value,
-                            fade_out_sec = _fadeOutSec.value,
-                            volume_boost = _volumeBoost.value,
+                            selected_file_name = capturedFileName,
+                            selected_file_size = capturedFileSize,
+                            trim_range_start = capturedTrimStart,
+                            trim_range_end = capturedTrimEnd,
+                            media_duration_ms = capturedDurationMs,
+                            fade_in_sec = capturedFadeIn,
+                            fade_out_sec = capturedFadeOut,
+                            volume_boost = capturedVolumeBoost,
                             last_updated = System.currentTimeMillis()
                         )
                         SupabaseClientManager.client.postgrest["user_preferences"].upsert(pref)
@@ -615,6 +839,9 @@ class NotificationSetterViewModel : ViewModel() {
 
     override fun onCleared() {
         super.onCleared()
+        try {
+            stopPreview()
+        } catch (_: Exception) {}
         try {
             mediaPlayer.release()
         } catch (e: Exception) {

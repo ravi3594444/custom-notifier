@@ -48,6 +48,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -600,6 +601,9 @@ fun NotificationSetterScreen(
 
     LaunchedEffect(userEmail) {
         viewModel.loadCloudPreference(context, userEmail)
+        // Also load the saved-sound library so it's ready when the user
+        // opens the "My Sounds" tab.
+        viewModel.loadSoundLibrary(context, userEmail)
     }
 
     val mediaPickerLauncher = rememberLauncherForActivityResult(
@@ -654,6 +658,7 @@ fun NotificationSetterScreen(
                     label = { Text("Sound Customizer", fontWeight = FontWeight.Bold) },
                     selected = currentScreen == "customizer",
                     onClick = {
+                        viewModel.stopPreview()
                         viewModel.setCurrentScreen("customizer")
                         scope.launch { drawerState.close() }
                     },
@@ -662,9 +667,21 @@ fun NotificationSetterScreen(
                 )
 
                 NavigationDrawerItem(
+                    label = { Text("My Sounds", fontWeight = FontWeight.Bold) },
+                    selected = currentScreen == "library",
+                    onClick = {
+                        viewModel.setCurrentScreen("library")
+                        scope.launch { drawerState.close() }
+                    },
+                    icon = { Icon(Icons.Default.LibraryMusic, contentDescription = null) },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+
+                NavigationDrawerItem(
                     label = { Text("Developer Version", fontWeight = FontWeight.Bold) },
                     selected = currentScreen == "developer",
                     onClick = {
+                        viewModel.stopPreview()
                         viewModel.setCurrentScreen("developer")
                         scope.launch { drawerState.close() }
                     },
@@ -1202,6 +1219,13 @@ fun NotificationSetterScreen(
             }
         }
     }
+} else if (currentScreen == "library") {
+    MySoundsScreen(
+        userEmail = userEmail,
+        viewModel = viewModel,
+        onMenuClick = { scope.launch { drawerState.open() } },
+        onBackToCustomizer = { viewModel.setCurrentScreen("customizer") }
+    )
 } else {
     DeveloperVersionScreen(
         onBackToCustomizer = { viewModel.setCurrentScreen("customizer") },
