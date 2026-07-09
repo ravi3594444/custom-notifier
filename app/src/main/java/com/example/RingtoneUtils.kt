@@ -308,16 +308,18 @@ object RingtoneUtils {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
                 put(MediaStore.Audio.Media.TITLE, title)
                 put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
-                put(MediaStore.Audio.Media.IS_NOTIFICATION, 1)
-                put(MediaStore.Audio.Media.IS_RINGTONE, 1)
+                put(MediaStore.Audio.Media.IS_NOTIFICATION, if (setAsNotification) 1 else 0)
+                put(MediaStore.Audio.Media.IS_RINGTONE, if (setAsRingtone) 1 else 0)
                 put(MediaStore.Audio.Media.IS_ALARM, 1)
                 put(MediaStore.Audio.Media.IS_MUSIC, 0)
                 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_NOTIFICATIONS)
+                    val relativePath = if (setAsRingtone) Environment.DIRECTORY_RINGTONES else Environment.DIRECTORY_NOTIFICATIONS
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
                     put(MediaStore.Audio.Media.IS_PENDING, 1)
                 } else {
-                    val directory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_NOTIFICATIONS)
+                    val dirName = if (setAsRingtone) Environment.DIRECTORY_RINGTONES else Environment.DIRECTORY_NOTIFICATIONS
+                    val directory = Environment.getExternalStoragePublicDirectory(dirName)
                     if (!directory.exists()) {
                         directory.mkdirs()
                     }
@@ -340,7 +342,8 @@ object RingtoneUtils {
                     }
                     context.contentResolver.update(uri, updateValues, null, null)
                 } else {
-                    val directory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_NOTIFICATIONS)
+                    val dirName = if (setAsRingtone) Environment.DIRECTORY_RINGTONES else Environment.DIRECTORY_NOTIFICATIONS
+                    val directory = Environment.getExternalStoragePublicDirectory(dirName)
                     val targetFile = File(directory, displayName)
                     MediaScannerConnection.scanFile(
                         context,

@@ -83,6 +83,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
+import io.github.jan.supabase.auth.auth
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -105,8 +106,7 @@ import java.io.File
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)", e)
-        }
+        super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
@@ -1142,8 +1142,7 @@ fun NotificationSetterScreen(
                     Slider(
                         value = volumeBoost,
                         onValueChange = { viewModel.updateVolumeBoost(it) },
-                        valueRange = 0.5f..10.0f,
-                        steps = 94,
+                        valueRange = 0.0f..1.0f,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

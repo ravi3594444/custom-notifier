@@ -16,6 +16,23 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.storage.storage
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class UserSoundPreference(
+    val email: String,
+    val selected_file_name: String,
+    val selected_file_size: String,
+    val trim_range_start: Float,
+    val trim_range_end: Float,
+    val media_duration_ms: Long,
+    val fade_in_sec: Float,
+    val fade_out_sec: Float,
+    val volume_boost: Float,
+    val last_updated: Long
+)
 
 class NotificationSetterViewModel : ViewModel() {
 
@@ -105,74 +122,182 @@ class NotificationSetterViewModel : ViewModel() {
         }
     }
 
+    private fun stopAndResetPlayer() {
+        _isPlaying.value = false
+        playbackJob?.cancel()
+        try {
+            if (mediaPlayer.isPlaying) {
+                mediaPlayer.pause()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        try {
+            mediaPlayer.reset()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private suspend fun copyUriToPermanentFile(context: Context, uri: Uri): File? = withContext(Dispatchers.IO) {
+        try {
+            val directory = File(context.filesDir, "custom_sounds")
+            if (!directory.exists()) {
+                directory.mkdirs()
+            }
+            val permanentFile = File(directory, "selected_sound_${System.currentTimeMillis()}.bin")
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                java.io.FileOutputStream(permanentFile).use { outputStream ->
+                    inputStream.copyTo(outputStream)
+                }
+            }
+            // Delete older files to save storage space
+            try {
+                directory.listFiles()?.forEach { file ->
+                    if (file.name != permanentFile.name) {
+                        file.delete()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            permanentFile
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    private fun saveLocalPreference(context: Context, email: String) {
+        val prefs = context.getSharedPreferences("user_sound_prefs_$email", Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putString("selectedFileName", _selectedFileName.value)
+            putString("selectedFileSize", _selectedFileSize.value)
+            putLong("mediaDurationMs", _mediaDurationMs.value)
+            putFloat("trimRangeStart", _trimRange.value.start)
+            putFloat("trimRangeEnd", _trimRange.value.endInclusive)
+            putFloat("fadeInSec", _fadeInSec.value)
+            putFloat("fadeOutSec", _fadeOutSec.value)
+            putFloat("volumeBoost", _volumeBoost.value)
+            putString("selectedMediaUri", _selectedMediaUri.value?.toString() ?: "")
+            apply()
+        }
+    }
+
+    private fun loadLocalPreference(context: Context, email: String): Boolean {
+        val prefs = context.getSharedPreferences("user_sound_prefs_$email", Context.MODE_PRIVATE)
+        val fileName = prefs.getString("selectedFileName", null) ?: return false
+        val fileSize = prefs.getString("selectedFileSize", "") ?: ""
+        val durationMs = prefs.getLong("mediaDurationMs", 0L)
+        val start = prefs.getFloat("trimRangeStart", 0f)
+        val end = prefs.getFloat("trimRangeEnd", durationMs.toFloat())
+        val fadeIn = prefs.getFloat("fadeInSec", 0f)
+        val fadeOut = prefs.getFloat("fadeOutSec", 0f)
+        val volume = prefs.getFloat("volumeBoost", 1.0f)
+        val uriStr = prefs.getString("selectedMediaUri", null)
+        
+        _selectedFileName.value = fileName
+        _selectedFileSize.value = fileSize
+        _mediaDurationMs.value = durationMs
+        _trimRange.value = start..end
+        _fadeInSec.value = fadeIn
+        _fadeOutSec.value = fadeOut
+        _volumeBoost.value = volume
+        
+        if (!uriStr.isNullOrEmpty()) {
+            try {
+                val uri = Uri.parse(uriStr)
+                if (uri.scheme == "file") {
+                    val file = File(uri.path ?: "")
+                    if (file.exists()) {
+                        _selectedMediaUri.value = uri
+                        mediaPlayer.reset()
+                        mediaPlayer.setDataSource(context, uri)
+                        mediaPlayer.prepare()
+                        _currentPlaybackPos.value = start
+                        mediaPlayer.seekTo(start.toInt())
+                        return true
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        return false
+    }
+
     fun loadCloudPreference(context: Context, userEmail: String) {
         if (userEmail.isEmpty()) return
         val appContext = context.applicationContext
         _isProcessing.value = true
-        _processingStatus.value = "Loading cloud sound preference..."
+        _processingStatus.value = "Loading sound preferences..."
         
-        try {
-            val db = "dummy"
-            db.collection("users").document(userEmail).get()
-                .addOnSuccessListener { document ->
-                    if (document != null && document.exists()) {
-                        val fileName = document.getString("selectedFileName") ?: ""
-                        val fileSize = document.getString("selectedFileSize") ?: ""
-                        val durationMs = document.getLong("mediaDurationMs") ?: 0L
-                        val start = document.getDouble("trimRangeStart")?.toFloat() ?: 0f
-                        val end = document.getDouble("trimRangeEnd")?.toFloat() ?: durationMs.toFloat()
-                        val storagePath = document.getString("audioStoragePath") ?: ""
-                        
-                        if (fileName.isNotEmpty() && storagePath.isNotEmpty()) {
-                            try {
-                                val storage = "dummy"
-                                val storageRef = storage.reference.child(storagePath)
-                                val localFile = File(appContext.cacheDir, "cloud_$fileName")
-                                
-                                storageRef.getFile(localFile)
-                                    .addOnSuccessListener {
-                                        viewModelScope.launch {
-                                            try {
-                                                val restoredUri = Uri.fromFile(localFile)
-                                                _selectedMediaUri.value = restoredUri
-                                                _selectedFileName.value = fileName
-                                                _selectedFileSize.value = fileSize
-                                                _mediaDurationMs.value = durationMs
-                                                _trimRange.value = start..end
-                                                
-                                                withContext(Dispatchers.IO) {
-                                                    mediaPlayer.reset()
-                                                    mediaPlayer.setDataSource(appContext, restoredUri)
-                                                    mediaPlayer.prepare()
-                                                }
-                                                _currentPlaybackPos.value = start
-                                                mediaPlayer.seekTo(start.toInt())
-                                            } catch (e: Exception) {
-                                                e.printStackTrace()
-                                            }
-                                            _isProcessing.value = false
-                                        }
+        // 1. Load from local SharedPreferences instantly for best offline responsiveness
+        val hasLocal = loadLocalPreference(appContext, userEmail)
+        if (hasLocal) {
+            _isProcessing.value = false
+        }
+
+        // 2. Query Supabase for cloud sync (only if not guest account)
+        if (!userEmail.startsWith("guest_")) {
+            viewModelScope.launch {
+                try {
+                    val pref = withContext(Dispatchers.IO) {
+                        try {
+                            SupabaseClientManager.client.postgrest["user_preferences"]
+                                .select {
+                                    filter {
+                                        eq("email", userEmail)
                                     }
-                                    .addOnFailureListener {
-                                        _isProcessing.value = false
-                                        Toast.makeText(appContext, "Failed to download cloud sound", Toast.LENGTH_SHORT).show()
-                                    }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                                _isProcessing.value = false
-                            }
-                        } else {
-                            _isProcessing.value = false
+                                }.decodeSingleOrNull<UserSoundPreference>()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            null
                         }
-                    } else {
-                        _isProcessing.value = false
                     }
-                }
-                .addOnFailureListener {
+
+                    if (pref != null) {
+                        // Only override if local values are different or non-existent
+                        if (_selectedFileName.value != pref.selected_file_name) {
+                            _processingStatus.value = "Downloading cloud sound file..."
+                            val localFile = File(appContext.cacheDir, "cloud_${pref.selected_file_name}")
+                            withContext(Dispatchers.IO) {
+                                try {
+                                    val bucket = SupabaseClientManager.client.storage["sounds"]
+                                    val safeEmail = userEmail.replace("@", "_").replace(".", "_")
+                                    val bytes = bucket.downloadPublic("users/$safeEmail/notification_sound")
+                                    localFile.writeBytes(bytes)
+                                    
+                                    val restoredUri = Uri.fromFile(localFile)
+                                    _selectedMediaUri.value = restoredUri
+                                    _selectedFileName.value = pref.selected_file_name
+                                    _selectedFileSize.value = pref.selected_file_size
+                                    _mediaDurationMs.value = pref.media_duration_ms
+                                    _trimRange.value = pref.trim_range_start..pref.trim_range_end
+                                    _fadeInSec.value = pref.fade_in_sec
+                                    _fadeOutSec.value = pref.fade_out_sec
+                                    _volumeBoost.value = pref.volume_boost
+                                    
+                                    mediaPlayer.reset()
+                                    mediaPlayer.setDataSource(appContext, restoredUri)
+                                    mediaPlayer.prepare()
+                                    _currentPlaybackPos.value = pref.trim_range_start
+                                    mediaPlayer.seekTo(pref.trim_range_start.toInt())
+                                    
+                                    saveLocalPreference(appContext, userEmail)
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
                     _isProcessing.value = false
                 }
-        } catch (e: Exception) {
-            e.printStackTrace()
+            }
+        } else {
             _isProcessing.value = false
         }
     }
@@ -182,6 +307,9 @@ class NotificationSetterViewModel : ViewModel() {
         viewModelScope.launch {
             _isProcessing.value = true
             _processingStatus.value = "Reading selected file..."
+            
+            // Clean up old audio state completely to prevent any multi-threading media player crashes
+            stopAndResetPlayer()
             
             var name = "sound_clip.mp3"
             var sizeStr = ""
@@ -208,34 +336,39 @@ class NotificationSetterViewModel : ViewModel() {
             _selectedFileName.value = name
             _selectedFileSize.value = sizeStr
 
+            // Immediately copy to a persistent local cache file so we have permanent file access permissions
+            val permanentLocalFile = copyUriToPermanentFile(appContext, uri)
+            val uriToUse = if (permanentLocalFile != null) Uri.fromFile(permanentLocalFile) else uri
+
             val mimeType = appContext.contentResolver.getType(uri) ?: ""
-            val uriToUse = if (mimeType.startsWith("video/")) {
+            val finalUri = if (mimeType.startsWith("video/")) {
                 _processingStatus.value = "Extracting high-quality audio track..."
                 val cacheFile = File(appContext.cacheDir, "extracted_audio_${System.currentTimeMillis()}.m4a")
-                val success = RingtoneUtils.extractAudioFromVideo(appContext, uri, cacheFile)
-                if (success) Uri.fromFile(cacheFile) else uri
+                val success = RingtoneUtils.extractAudioFromVideo(appContext, uriToUse, cacheFile)
+                if (success) Uri.fromFile(cacheFile) else uriToUse
             } else {
-                uri
+                uriToUse
             }
 
             try {
                 _processingStatus.value = "Preparing preview player..."
                 withContext(Dispatchers.IO) {
                     mediaPlayer.reset()
-                    mediaPlayer.setDataSource(appContext, uriToUse)
+                    mediaPlayer.setDataSource(appContext, finalUri)
                     mediaPlayer.prepare()
                 }
                 val duration = mediaPlayer.duration.toLong()
                 _mediaDurationMs.value = duration
                 _trimRange.value = 0f..duration.toFloat()
                 _currentPlaybackPos.value = 0f
-                _selectedMediaUri.value = uriToUse
+                _selectedMediaUri.value = finalUri
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(appContext, "Failed to load media file", Toast.LENGTH_SHORT).show()
                 }
                 _selectedFileName.value = ""
                 _selectedFileSize.value = ""
+                _selectedMediaUri.value = null
             }
             _isProcessing.value = false
         }
@@ -257,7 +390,13 @@ class NotificationSetterViewModel : ViewModel() {
 
     fun pause() {
         _isPlaying.value = false
-        mediaPlayer.pause()
+        try {
+            if (mediaPlayer.isPlaying) {
+                mediaPlayer.pause()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
         playbackJob?.cancel()
     }
 
@@ -272,7 +411,7 @@ class NotificationSetterViewModel : ViewModel() {
     }
 
     fun clearSelectedFile() {
-        pause()
+        stopAndResetPlayer()
         _selectedMediaUri.value = null
         _selectedFileName.value = ""
         _selectedFileSize.value = ""
@@ -288,13 +427,17 @@ class NotificationSetterViewModel : ViewModel() {
         playbackJob?.cancel()
         playbackJob = viewModelScope.launch {
             while (_isPlaying.value) {
-                val currentPos = mediaPlayer.currentPosition.toFloat()
-                _currentPlaybackPos.value = currentPos
-                if (currentPos >= _trimRange.value.endInclusive) {
-                    mediaPlayer.pause()
-                    mediaPlayer.seekTo(_trimRange.value.start.toInt())
-                    _currentPlaybackPos.value = _trimRange.value.start
-                    _isPlaying.value = false
+                try {
+                    val currentPos = mediaPlayer.currentPosition.toFloat()
+                    _currentPlaybackPos.value = currentPos
+                    if (currentPos >= _trimRange.value.endInclusive) {
+                        mediaPlayer.pause()
+                        mediaPlayer.seekTo(_trimRange.value.start.toInt())
+                        _currentPlaybackPos.value = _trimRange.value.start
+                        _isPlaying.value = false
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
                 delay(50)
             }
@@ -310,9 +453,7 @@ class NotificationSetterViewModel : ViewModel() {
         val appContext = context.applicationContext
         viewModelScope.launch {
             _isProcessing.value = true
-            _isPlaying.value = false
-            playbackJob?.cancel()
-            mediaPlayer.pause()
+            stopAndResetPlayer()
             
             _processingStatus.value = "Slicing and normalizing audio levels..."
             
@@ -355,40 +496,40 @@ class NotificationSetterViewModel : ViewModel() {
                 )
             }
 
+            // Always save preferences locally first
+            saveLocalPreference(appContext, userEmail)
+
             _isProcessing.value = false
             clearSelectedFile()
             refreshNotificationSoundName(appContext)
 
-            // Upload to Cloud Storage and save metadata in Firestore if email is provided
-            if (userEmail.isNotEmpty()) {
-                try {
-                    val safeEmail = userEmail.replace("@", "_").replace(".", "_")
-                    val storage = "dummy"
-                    val storageRef = storage.reference.child("users/$safeEmail/notification_sound")
-                    
-                    storageRef.putFile(finalUri)
-                        .addOnSuccessListener {
-                            try {
-                                val db = "dummy"
-                                val data = hashMapOf(
-                                    "selectedFileName" to _selectedFileName.value,
-                                    "selectedFileSize" to _selectedFileSize.value,
-                                    "trimRangeStart" to _trimRange.value.start,
-                                    "trimRangeEnd" to _trimRange.value.endInclusive,
-                                    "mediaDurationMs" to _mediaDurationMs.value,
-                                    "audioStoragePath" to "users/$safeEmail/notification_sound",
-                                    "lastUpdated" to System.currentTimeMillis()
-                                )
-                                db.collection("users").document(userEmail).set(data)
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
+            // Sync to Supabase in background if user is not a guest
+            if (userEmail.isNotEmpty() && !userEmail.startsWith("guest_")) {
+                launch(Dispatchers.IO) {
+                    try {
+                        val safeEmail = userEmail.replace("@", "_").replace(".", "_")
+                        val bucket = SupabaseClientManager.client.storage["sounds"]
+                        val bytes = processedFile.readBytes()
+                        bucket.upload("users/$safeEmail/notification_sound", bytes) {
+                            upsert = true
                         }
-                        .addOnFailureListener { e ->
-                            e.printStackTrace()
-                        }
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                        
+                        val pref = UserSoundPreference(
+                            email = userEmail,
+                            selected_file_name = _selectedFileName.value,
+                            selected_file_size = _selectedFileSize.value,
+                            trim_range_start = _trimRange.value.start,
+                            trim_range_end = _trimRange.value.endInclusive,
+                            media_duration_ms = _mediaDurationMs.value,
+                            fade_in_sec = _fadeInSec.value,
+                            fade_out_sec = _fadeOutSec.value,
+                            volume_boost = _volumeBoost.value,
+                            last_updated = System.currentTimeMillis()
+                        )
+                        SupabaseClientManager.client.postgrest["user_preferences"].upsert(pref)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
             }
         }
@@ -431,19 +572,32 @@ class NotificationSetterViewModel : ViewModel() {
                     Toast.makeText(appContext, "Sound preferences reset!", Toast.LENGTH_SHORT).show()
                 }
                 
-                if (userEmail.isNotEmpty()) {
-                    try {
-                        val db = "dummy"
-                        db.collection("users").document(userEmail).delete()
-                        
-                        val safeEmail = userEmail.replace("@", "_").replace(".", "_")
-                        val storage = "dummy"
-                        storage.reference.child("users/$safeEmail/notification_sound").delete()
-                            .addOnFailureListener {
-                                // ignore if file doesn't exist
+                // Clear local preferences
+                val prefs = appContext.getSharedPreferences("user_sound_prefs_$userEmail", Context.MODE_PRIVATE)
+                prefs.edit().clear().apply()
+
+                // Clean up any persistent files
+                try {
+                    val directory = File(appContext.filesDir, "custom_sounds")
+                    directory.listFiles()?.forEach { it.delete() }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+
+                // Delete from Supabase in background
+                if (userEmail.isNotEmpty() && !userEmail.startsWith("guest_")) {
+                    launch(Dispatchers.IO) {
+                        try {
+                            val safeEmail = userEmail.replace("@", "_").replace(".", "_")
+                            SupabaseClientManager.client.storage["sounds"].delete("users/$safeEmail/notification_sound")
+                            SupabaseClientManager.client.postgrest["user_preferences"].delete {
+                                filter {
+                                    eq("email", userEmail)
+                                }
                             }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
                     }
                 }
             } catch (e: Exception) {
