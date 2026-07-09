@@ -78,70 +78,87 @@ class NotificationSetterViewModel : ViewModel() {
     }
 
     fun refreshNotificationSoundName(context: Context) {
+        val appContext = context.applicationContext
         viewModelScope.launch(Dispatchers.IO) {
-            val name = RingtoneUtils.getCurrentNotificationSoundName(context)
+            val name = RingtoneUtils.getCurrentNotificationSoundName(appContext)
             _currentSystemNotificationSound.value = name
         }
     }
 
     fun loadCloudPreference(context: Context, userEmail: String) {
         if (userEmail.isEmpty()) return
+        val appContext = context.applicationContext
         _isProcessing.value = true
         _processingStatus.value = "Loading cloud sound preference..."
         
-        val db = FirebaseFirestore.getInstance()
-        db.collection("users").document(userEmail).get()
-            .addOnSuccessListener { document ->
-                if (document != null && document.exists()) {
-                    val fileName = document.getString("selectedFileName") ?: ""
-                    val fileSize = document.getString("selectedFileSize") ?: ""
-                    val durationMs = document.getLong("mediaDurationMs") ?: 0L
-                    val start = document.getDouble("trimRangeStart")?.toFloat() ?: 0f
-                    val end = document.getDouble("trimRangeEnd")?.toFloat() ?: durationMs.toFloat()
-                    val storagePath = document.getString("audioStoragePath") ?: ""
-                    
-                    if (fileName.isNotEmpty() && storagePath.isNotEmpty()) {
-                        val storage = com.google.firebase.storage.FirebaseStorage.getInstance()
-                        val storageRef = storage.reference.child(storagePath)
-                        val localFile = File(context.cacheDir, "cloud_$fileName")
+        try {
+            val db = FirebaseFirestore.getInstance()
+            db.collection("users").document(userEmail).get()
+                .addOnSuccessListener { document ->
+                    if (document != null && document.exists()) {
+                        val fileName = document.getString("selectedFileName") ?: ""
+                        val fileSize = document.getString("selectedFileSize") ?: ""
+                        val durationMs = document.getLong("mediaDurationMs") ?: 0L
+                        val start = document.getDouble("trimRangeStart")?.toFloat() ?: 0f
+                        val end = document.getDouble("trimRangeEnd")?.toFloat() ?: durationMs.toFloat()
+                        val storagePath = document.getString("audioStoragePath") ?: ""
                         
-                        storageRef.getFile(localFile)
-                            .addOnSuccessListener {
-                                try {
-                                    val restoredUri = Uri.fromFile(localFile)
-                                    _selectedMediaUri.value = restoredUri
-                                    _selectedFileName.value = fileName
-                                    _selectedFileSize.value = fileSize
-                                    _mediaDurationMs.value = durationMs
-                                    _trimRange.value = start..end
-                                    
-                                    mediaPlayer.reset()
-                                    mediaPlayer.setDataSource(context, restoredUri)
-                                    mediaPlayer.prepare()
-                                    _currentPlaybackPos.value = start
-                                    mediaPlayer.seekTo(start.toInt())
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
+                        if (fileName.isNotEmpty() && storagePath.isNotEmpty()) {
+                            try {
+                                val storage = com.google.firebase.storage.FirebaseStorage.getInstance()
+                                val storageRef = storage.reference.child(storagePath)
+                                val localFile = File(appContext.cacheDir, "cloud_$fileName")
+                                
+                                storageRef.getFile(localFile)
+                                    .addOnSuccessListener {
+                                        viewModelScope.launch {
+                                            try {
+                                                val restoredUri = Uri.fromFile(localFile)
+                                                _selectedMediaUri.value = restoredUri
+                                                _selectedFileName.value = fileName
+                                                _selectedFileSize.value = fileSize
+                                                _mediaDurationMs.value = durationMs
+                                                _trimRange.value = start..end
+                                                
+                                                withContext(Dispatchers.IO) {
+                                                    mediaPlayer.reset()
+                                                    mediaPlayer.setDataSource(appContext, restoredUri)
+                                                    mediaPlayer.prepare()
+                                                }
+                                                _currentPlaybackPos.value = start
+                                                mediaPlayer.seekTo(start.toInt())
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
+                                            }
+                                            _isProcessing.value = false
+                                        }
+                                    }
+                                    .addOnFailureListener {
+                                        _isProcessing.value = false
+                                        Toast.makeText(appContext, "Failed to download cloud sound", Toast.LENGTH_SHORT).show()
+                                    }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
                                 _isProcessing.value = false
                             }
-                            .addOnFailureListener {
-                                _isProcessing.value = false
-                                Toast.makeText(context, "Failed to download cloud sound", Toast.LENGTH_SHORT).show()
-                            }
+                        } else {
+                            _isProcessing.value = false
+                        }
                     } else {
                         _isProcessing.value = false
                     }
-                } else {
+                }
+                .addOnFailureListener {
                     _isProcessing.value = false
                 }
-            }
-            .addOnFailureListener {
-                _isProcessing.value = false
-            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            _isProcessing.value = false
+        }
     }
 
     fun onFilePicked(context: Context, uri: Uri) {
+        val appContext = context.applicationContext
         viewModelScope.launch {
             _isProcessing.value = true
             _processingStatus.value = "Reading selected file..."
@@ -151,7 +168,7 @@ class NotificationSetterViewModel : ViewModel() {
             
             try {
                 withContext(Dispatchers.IO) {
-                    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    appContext.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                         if (cursor.moveToFirst()) {
                             val nameIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
                             val sizeIndex = cursor.getColumnIndex(MediaStore.MediaColumns.SIZE)
@@ -171,11 +188,11 @@ class NotificationSetterViewModel : ViewModel() {
             _selectedFileName.value = name
             _selectedFileSize.value = sizeStr
 
-            val mimeType = context.contentResolver.getType(uri) ?: ""
+            val mimeType = appContext.contentResolver.getType(uri) ?: ""
             val uriToUse = if (mimeType.startsWith("video/")) {
                 _processingStatus.value = "Extracting high-quality audio track..."
-                val cacheFile = File(context.cacheDir, "extracted_audio_${System.currentTimeMillis()}.m4a")
-                val success = RingtoneUtils.extractAudioFromVideo(context, uri, cacheFile)
+                val cacheFile = File(appContext.cacheDir, "extracted_audio_${System.currentTimeMillis()}.m4a")
+                val success = RingtoneUtils.extractAudioFromVideo(appContext, uri, cacheFile)
                 if (success) Uri.fromFile(cacheFile) else uri
             } else {
                 uri
@@ -183,16 +200,20 @@ class NotificationSetterViewModel : ViewModel() {
 
             try {
                 _processingStatus.value = "Preparing preview player..."
-                mediaPlayer.reset()
-                mediaPlayer.setDataSource(context, uriToUse)
-                mediaPlayer.prepare()
+                withContext(Dispatchers.IO) {
+                    mediaPlayer.reset()
+                    mediaPlayer.setDataSource(appContext, uriToUse)
+                    mediaPlayer.prepare()
+                }
                 val duration = mediaPlayer.duration.toLong()
                 _mediaDurationMs.value = duration
                 _trimRange.value = 0f..duration.toFloat()
                 _currentPlaybackPos.value = 0f
                 _selectedMediaUri.value = uriToUse
             } catch (e: Exception) {
-                Toast.makeText(context, "Failed to load media file", Toast.LENGTH_SHORT).show()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(appContext, "Failed to load media file", Toast.LENGTH_SHORT).show()
+                }
                 _selectedFileName.value = ""
                 _selectedFileSize.value = ""
             }
@@ -263,6 +284,7 @@ class NotificationSetterViewModel : ViewModel() {
         setAsNotification: Boolean,
         setAsRingtone: Boolean
     ) {
+        val appContext = context.applicationContext
         viewModelScope.launch {
             _isProcessing.value = true
             _isPlaying.value = false
@@ -271,9 +293,9 @@ class NotificationSetterViewModel : ViewModel() {
             
             _processingStatus.value = "Slicing and normalizing audio levels..."
             
-            val processedFile = File(context.cacheDir, "processed_audio_${System.currentTimeMillis()}.m4a")
+            val processedFile = File(appContext.cacheDir, "processed_audio_${System.currentTimeMillis()}.m4a")
             val success = AudioProcessor.process(
-                context,
+                appContext,
                 _selectedMediaUri.value!!,
                 processedFile,
                 _trimRange.value.start.toLong(),
@@ -286,20 +308,26 @@ class NotificationSetterViewModel : ViewModel() {
             if (success) {
                 finalUri = Uri.fromFile(processedFile)
                 finalIsExtracted = true
-                Toast.makeText(context, "Audio normalized successfully!", Toast.LENGTH_SHORT).show()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(appContext, "Audio normalized successfully!", Toast.LENGTH_SHORT).show()
+                }
             } else {
                 finalUri = _selectedMediaUri.value!!
                 finalIsExtracted = false
-                Toast.makeText(context, "Audio processing failed, using original file.", Toast.LENGTH_SHORT).show()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(appContext, "Audio processing failed, using original file.", Toast.LENGTH_SHORT).show()
+                }
             }
             
-            RingtoneUtils.setRingtoneFromUri(
-                context,
-                finalUri,
-                isExtracted = finalIsExtracted,
-                setAsNotification = setAsNotification,
-                setAsRingtone = setAsRingtone
-            )
+            withContext(Dispatchers.IO) {
+                RingtoneUtils.setRingtoneFromUri(
+                    appContext,
+                    finalUri,
+                    isExtracted = finalIsExtracted,
+                    setAsNotification = setAsNotification,
+                    setAsRingtone = setAsRingtone
+                )
+            }
 
             // Upload to Cloud Storage and save metadata in Firestore if email is provided
             if (userEmail.isNotEmpty()) {
@@ -311,75 +339,94 @@ class NotificationSetterViewModel : ViewModel() {
                     
                     storageRef.putFile(finalUri)
                         .addOnSuccessListener {
-                            val db = FirebaseFirestore.getInstance()
-                            val data = hashMapOf(
-                                "selectedFileName" to _selectedFileName.value,
-                                "selectedFileSize" to _selectedFileSize.value,
-                                "trimRangeStart" to _trimRange.value.start,
-                                "trimRangeEnd" to _trimRange.value.endInclusive,
-                                "mediaDurationMs" to _mediaDurationMs.value,
-                                "audioStoragePath" to "users/$safeEmail/notification_sound",
-                                "lastUpdated" to System.currentTimeMillis()
-                            )
-                            db.collection("users").document(userEmail).set(data)
-                                .addOnSuccessListener {
-                                    _isProcessing.value = false
-                                    clearSelectedFile()
-                                    refreshNotificationSoundName(context)
-                                }
-                                .addOnFailureListener { e ->
-                                    _isProcessing.value = false
-                                    Toast.makeText(context, "Firestore sync failed: ${e.message}", Toast.LENGTH_SHORT).show()
-                                }
+                            try {
+                                val db = FirebaseFirestore.getInstance()
+                                val data = hashMapOf(
+                                    "selectedFileName" to _selectedFileName.value,
+                                    "selectedFileSize" to _selectedFileSize.value,
+                                    "trimRangeStart" to _trimRange.value.start,
+                                    "trimRangeEnd" to _trimRange.value.endInclusive,
+                                    "mediaDurationMs" to _mediaDurationMs.value,
+                                    "audioStoragePath" to "users/$safeEmail/notification_sound",
+                                    "lastUpdated" to System.currentTimeMillis()
+                                )
+                                db.collection("users").document(userEmail).set(data)
+                                    .addOnSuccessListener {
+                                        _isProcessing.value = false
+                                        clearSelectedFile()
+                                        refreshNotificationSoundName(appContext)
+                                    }
+                                    .addOnFailureListener { e ->
+                                        _isProcessing.value = false
+                                        Toast.makeText(appContext, "Saved locally! Firestore sync skipped.", Toast.LENGTH_SHORT).show()
+                                        clearSelectedFile()
+                                        refreshNotificationSoundName(appContext)
+                                    }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                _isProcessing.value = false
+                                Toast.makeText(appContext, "Saved locally! Cloud database offline.", Toast.LENGTH_SHORT).show()
+                                clearSelectedFile()
+                                refreshNotificationSoundName(appContext)
+                            }
                         }
                         .addOnFailureListener { e ->
                             _isProcessing.value = false
-                            Toast.makeText(context, "Cloud storage upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(appContext, "Saved locally! Cloud upload skipped.", Toast.LENGTH_SHORT).show()
+                            clearSelectedFile()
+                            refreshNotificationSoundName(appContext)
                         }
                 } catch (e: Exception) {
                     _isProcessing.value = false
                     e.printStackTrace()
-                    Toast.makeText(context, "Sync error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(appContext, "Saved locally! Cloud backup offline.", Toast.LENGTH_SHORT).show()
+                    clearSelectedFile()
+                    refreshNotificationSoundName(appContext)
                 }
             } else {
                 _isProcessing.value = false
                 clearSelectedFile()
-                refreshNotificationSoundName(context)
+                refreshNotificationSoundName(appContext)
             }
         }
     }
 
     fun resetToSystemDefault(context: Context, userEmail: String, setAsNotification: Boolean, setAsRingtone: Boolean) {
+        val appContext = context.applicationContext
         viewModelScope.launch {
             _isProcessing.value = true
             _processingStatus.value = "Resetting sounds..."
             
             try {
-                if (setAsNotification) {
-                    val defaultUri = RingtoneUtils.getSystemDefaultNotificationUri(context)
-                    android.media.RingtoneManager.setActualDefaultRingtoneUri(
-                        context,
-                        android.media.RingtoneManager.TYPE_NOTIFICATION,
-                        defaultUri
-                    )
-                }
-                
-                if (setAsRingtone) {
-                    val defaultUri = RingtoneUtils.getSystemDefaultRingtoneUri(context)
-                    try {
+                withContext(Dispatchers.IO) {
+                    if (setAsNotification) {
+                        val defaultUri = RingtoneUtils.getSystemDefaultNotificationUri(appContext)
                         android.media.RingtoneManager.setActualDefaultRingtoneUri(
-                            context,
-                            android.media.RingtoneManager.TYPE_RINGTONE,
+                            appContext,
+                            android.media.RingtoneManager.TYPE_NOTIFICATION,
                             defaultUri
                         )
-                    } catch (e: Exception) {
-                        e.printStackTrace()
                     }
+                    
+                    if (setAsRingtone) {
+                        val defaultUri = RingtoneUtils.getSystemDefaultRingtoneUri(appContext)
+                        try {
+                            android.media.RingtoneManager.setActualDefaultRingtoneUri(
+                                appContext,
+                                android.media.RingtoneManager.TYPE_RINGTONE,
+                                defaultUri
+                            )
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                    
+                    RingtoneUtils.deleteCustomRingtonesFromSystem(appContext)
                 }
                 
-                RingtoneUtils.deleteCustomRingtonesFromSystem(context)
-                
-                Toast.makeText(context, "Sound preferences reset!", Toast.LENGTH_SHORT).show()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(appContext, "Sound preferences reset!", Toast.LENGTH_SHORT).show()
+                }
                 
                 if (userEmail.isNotEmpty()) {
                     try {
@@ -398,11 +445,13 @@ class NotificationSetterViewModel : ViewModel() {
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                Toast.makeText(context, "Reset failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(appContext, "Reset failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
             } finally {
                 _isProcessing.value = false
                 clearSelectedFile()
-                refreshNotificationSoundName(context)
+                refreshNotificationSoundName(appContext)
             }
         }
     }

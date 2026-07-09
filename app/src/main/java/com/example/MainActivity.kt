@@ -1,19 +1,10 @@
 package com.example
 
-import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
-import android.media.MediaCodec
-import android.media.MediaExtractor
-import android.media.MediaFormat
-import android.media.MediaMuxer
-import android.media.MediaPlayer
-import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
-import android.provider.MediaStore
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.rememberScrollState
@@ -110,9 +101,7 @@ import com.example.ui.theme.MyApplicationTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
-import java.nio.ByteBuffer
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
@@ -714,20 +703,28 @@ fun NotificationSetterScreen(
                         TextButton(
                             onClick = {
                                 viewModel.clearSelectedFile()
+                                val appContext = context.applicationContext
                                 scope.launch(Dispatchers.IO) {
                                     try {
-                                        val cacheFiles = context.cacheDir.listFiles()
+                                        val cacheFiles = appContext.cacheDir.listFiles()
                                         cacheFiles?.forEach { file ->
                                             if (file.isFile) {
-                                                file.delete()
+                                                val name = file.name
+                                                if (name.startsWith("processed_audio_") ||
+                                                    name.startsWith("extracted_audio_") ||
+                                                    name.startsWith("cloud_") ||
+                                                    name.startsWith("temp_transcode_")
+                                                ) {
+                                                    file.delete()
+                                                }
                                             }
                                         }
                                     } catch (e: Exception) {
                                         e.printStackTrace()
                                     }
                                 }
-                                viewModel.refreshNotificationSoundName(context)
-                                Toast.makeText(context, "Session cleared & temporary files removed", Toast.LENGTH_SHORT).show()
+                                viewModel.refreshNotificationSoundName(appContext)
+                                Toast.makeText(appContext, "Session cleared & temporary files removed", Toast.LENGTH_SHORT).show()
                             },
                             colors = ButtonDefaults.textButtonColors(
                                 contentColor = MaterialTheme.colorScheme.error
