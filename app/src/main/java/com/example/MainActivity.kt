@@ -132,14 +132,31 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(innerPadding)
                     ) {
                         composable("splash") {
+                            val context = LocalContext.current
                             SplashScreen(onLoadingFinished = {
-                                navController.navigate("login") {
-                                    popUpTo("splash") { inclusive = true }
+                                val sessionPrefs = context.getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
+                                val loggedInUser = sessionPrefs.getString("logged_in_user", null)
+                                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
+                                val currentUser = auth.currentUser
+                                
+                                val targetUser = loggedInUser ?: currentUser?.email
+                                if (targetUser != null && targetUser.isNotBlank()) {
+                                    navController.navigate("home/$targetUser") {
+                                        popUpTo("splash") { inclusive = true }
+                                    }
+                                } else {
+                                    navController.navigate("login") {
+                                        popUpTo("splash") { inclusive = true }
+                                    }
                                 }
                             })
                         }
                         composable("login") {
+                            val context = LocalContext.current
                             LoginScreen(onLoginSuccess = { email ->
+                                val sessionPrefs = context.getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
+                                sessionPrefs.edit().putString("logged_in_user", email).apply()
+                                
                                 navController.navigate("home/$email") {
                                     popUpTo("login") { inclusive = true }
                                 }
@@ -147,7 +164,14 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("home/{email}") { backStackEntry ->
                             val email = backStackEntry.arguments?.getString("email") ?: ""
-                            NotificationSetterScreen(userEmail = email)
+                            NotificationSetterScreen(
+                                userEmail = email,
+                                onLogout = {
+                                    navController.navigate("login") {
+                                        popUpTo("home/$email") { inclusive = true }
+                                    }
+                                }
+                            )
                         }
                     }
                 }
@@ -564,7 +588,8 @@ fun ProcessingCard(
 fun NotificationSetterScreen(
     modifier: Modifier = Modifier,
     userEmail: String = "",
-    viewModel: NotificationSetterViewModel = viewModel()
+    viewModel: NotificationSetterViewModel = viewModel(),
+    onLogout: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -658,6 +683,26 @@ fun NotificationSetterScreen(
                         scope.launch { drawerState.close() }
                     },
                     icon = { Icon(Icons.Default.Person, contentDescription = null) },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+
+                NavigationDrawerItem(
+                    label = { Text("Log Out", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) },
+                    selected = false,
+                    onClick = {
+                        scope.launch {
+                            drawerState.close()
+                            try {
+                                com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                            val sessionPrefs = context.getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
+                            sessionPrefs.edit().remove("logged_in_user").apply()
+                            onLogout()
+                        }
+                    },
+                    icon = { Icon(Icons.Default.Logout, contentDescription = "Log Out", tint = MaterialTheme.colorScheme.error) },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
 
