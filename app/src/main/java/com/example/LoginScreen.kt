@@ -413,6 +413,22 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
                         )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                TextButton(
+                    onClick = {
+                        onLoginSuccess("guest@example.com")
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Continue Offline (Guest Access)",
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                }
             }
         }
     }

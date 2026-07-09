@@ -114,11 +114,23 @@ import java.io.File
 import java.nio.ByteBuffer
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseOptions
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        FirebaseApp.initializeApp(this)
+        try {
+            if (FirebaseApp.getApps(this).isEmpty()) {
+                val options = FirebaseOptions.Builder()
+                    .setApiKey("AIzaSyFakeKeyPlaceholderForAppletInitializationOnly")
+                    .setApplicationId("1:1234567890:android:fakeappletid")
+                    .setProjectId("custom-notifier-dummy")
+                    .build()
+                FirebaseApp.initializeApp(this, options)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Firebase initialization failed: ${e.message}", e)
+        }
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
