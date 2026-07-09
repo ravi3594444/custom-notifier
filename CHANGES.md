@@ -114,58 +114,6 @@ SUPABASE_KEY=eyJhbGciOiJI...your-anon-public-key-here...JP_OCi8XwnQ
 
 ---
 
-## Google Sign-In (via Supabase) — what was added in a later commit
-
-The login screen now has a **"Sign in with Google"** button that signs the
-user in through Supabase (Google is the identity provider, Supabase owns the
-session). The flow is:
-
-1. User taps the button.
-2. `GoogleSignInClient` (from `play-services-auth`) shows the Google account
-   picker.
-3. We extract the Google `idToken` from the picked account.
-4. We call `SupabaseClientManager.client.auth.signInWith(IDToken)` — Supabase
-   validates the token against its configured Google Web Client ID and issues
-   a Supabase session.
-5. The app navigates to the home screen using the user's Google email.
-
-This is the official Supabase-recommended flow for Android — it does NOT use
-the OAuth/redirect flow, so no deep-link config is needed.
-
-### Setup steps required (one-time)
-
-1. **Google Cloud Console** — <https://console.cloud.google.com/>
-   - Create a project (or pick an existing one).
-   - APIs & Services → OAuth consent screen → set up External user type,
-     fill in app name + your email.
-   - APIs & Services → Credentials → **Create Credentials** → **OAuth
-     client ID** → **Web application** (NOT "Android" — Supabase needs the
-     Web client because that's the audience it validates).
-   - Add `https://YOUR-PROJECT-REF.supabase.co/auth/v1/callback` to the
-     **Authorized redirect URIs** for the Web client.
-   - Copy the resulting **Client ID** (it looks like
-     `123456789-abcdefg.apps.googleusercontent.com`).
-
-2. **Supabase Dashboard** — <https://supabase.com/dashboard>
-   - Open your project → **Authentication** → **Providers** → **Google**.
-   - Toggle **Enable Sign in with Google** to ON.
-   - Paste the **Web Client ID** and **Web Client Secret** from step 1.
-   - Save.
-
-3. **App `.env`** (local only — this file is gitignored):
-   ```
-   GOOGLE_WEB_CLIENT_ID=123456789-abcdefg.apps.googleusercontent.com
-   ```
-   The `secrets-gradle-plugin` injects this as `BuildConfig.GOOGLE_WEB_CLIENT_ID`
-   at build time, and `GoogleSignInHelper` reads it when building
-   `GoogleSignInOptions`.
-
-If `GOOGLE_WEB_CLIENT_ID` is left as the placeholder, the Google button will
-still try to launch the picker but Google will refuse to issue an ID token —
-you'll see a toast saying "Google did not return an ID token".
-
----
-
 ## What you need to do after pulling these changes
 
 1. **Run `supabase_setup.sql`** in your Supabase project's SQL Editor (just
@@ -178,21 +126,11 @@ you'll see a toast saying "Google did not return an ID token".
    SUPABASE_KEY=<the anon public key, NOT the service_role key>
    ```
 
-3. **(For Google Sign-In only)** Follow the 3 setup steps above and put the
-   Google Web Client ID in `.env`:
-   ```
-   GOOGLE_WEB_CLIENT_ID=123456789-abcdefg.apps.googleusercontent.com
-   ```
-   Also enable the Google provider in Supabase Authentication → Providers.
-
-4. **Build & run** as usual. The app should now:
+3. **Build & run** as usual. The app should now:
    - compile (the previous commit already fixed that),
    - actually set your custom sound as the system default without you having
      to go to System Sound Settings (this commit's `RingtoneUtils` fix),
    - upload a different file to the cloud successfully (replacing the previous
      one — already fixed in the previous commit),
    - cap the volume slider at 100% instead of 1000% (already fixed in the
-     previous commit),
-   - sign users in with Google via Supabase (this commit's Google Sign-In
-     addition).
-
+     previous commit).
