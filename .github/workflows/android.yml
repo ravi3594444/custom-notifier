@@ -27,8 +27,27 @@ jobs:
           gradle-version: '9.3.1'
 
       - name: Prepare environment config
+        # Build a real .env from GitHub repo secrets if they exist, so the
+        # APK gets the real Supabase URL/key baked into BuildConfig.
+        # If the secrets aren't set (e.g. on a fork), we fall back to
+        # .env.example and the app will hit placeholder.supabase.co --
+        # sign-in will fail with a clear error, but the build still works.
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          cp .env.example .env
+          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_KEY" ]; then
+            echo "Using real Supabase credentials from GitHub Secrets."
+            {
+              echo "GEMINI_API_KEY=placeholder_api_key"
+              echo "SUPABASE_URL=$SUPABASE_URL"
+              echo "SUPABASE_KEY=$SUPABASE_KEY"
+            } > .env
+          else
+            echo "WARNING: SUPABASE_URL / SUPABASE_KEY secrets are not set."
+            echo "Falling back to .env.example -- sign-in will not work."
+            cp .env.example .env
+          fi
 
       - name: Decode Debug Keystore
         run: |
