@@ -270,7 +270,7 @@ object RingtoneUtils {
         }
     }
 
-    fun setRingtoneFromUri(
+    suspend fun setRingtoneFromUri(
         context: Context,
         sourceUri: Uri,
         isExtracted: Boolean = false,
@@ -278,7 +278,9 @@ object RingtoneUtils {
         setAsRingtone: Boolean = false
     ) {
         if (!Settings.System.canWrite(context)) {
-            Toast.makeText(context, "Write Settings permission is missing.", Toast.LENGTH_SHORT).show()
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Write Settings permission is missing.", Toast.LENGTH_SHORT).show()
+            }
             return
         }
 
@@ -361,13 +363,19 @@ object RingtoneUtils {
                 val msg = if (setAsNotification && setAsRingtone) "Notification & Ringtone sound updated successfully!" 
                           else if (setAsNotification) "Notification sound updated successfully!"
                           else "Ringtone updated successfully!"
-                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                }
             } else {
-                Toast.makeText(context, "Failed to save audio file to system database.", Toast.LENGTH_SHORT).show()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Failed to save audio file to system database.", Toast.LENGTH_SHORT).show()
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            Toast.makeText(context, "Error setting sound: ${e.message}", Toast.LENGTH_LONG).show()
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Error setting sound: ${e.message}", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
