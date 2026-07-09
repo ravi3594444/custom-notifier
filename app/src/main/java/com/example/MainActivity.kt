@@ -102,24 +102,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.FirebaseApp
-import com.google.firebase.FirebaseOptions
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        try {
-            if (FirebaseApp.getApps(this).isEmpty()) {
-                val options = FirebaseOptions.Builder()
-                    .setApiKey("AIzaSyFakeKeyPlaceholderForAppletInitializationOnly")
-                    .setApplicationId("1:1234567890:android:fakeappletid")
-                    .setProjectId("custom-notifier-dummy")
-                    .build()
-                FirebaseApp.initializeApp(this, options)
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("MainActivity", "Firebase initialization failed: ${e.message}", e)
+        super.onCreate(savedInstanceState)", e)
         }
         enableEdgeToEdge()
         setContent {
@@ -136,8 +122,8 @@ class MainActivity : ComponentActivity() {
                             SplashScreen(onLoadingFinished = {
                                 val sessionPrefs = context.getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
                                 val loggedInUser = sessionPrefs.getString("logged_in_user", null)
-                                val auth = com.google.firebase.auth.FirebaseAuth.getInstance()
-                                val currentUser = auth.currentUser
+                                val auth = SupabaseClientManager.client.auth
+                                val currentUser = auth.currentUserOrNull()
                                 
                                 val targetUser = loggedInUser ?: currentUser?.email
                                 if (targetUser != null && targetUser.isNotBlank()) {
@@ -693,7 +679,7 @@ fun NotificationSetterScreen(
                         scope.launch {
                             drawerState.close()
                             try {
-                                com.google.firebase.auth.FirebaseAuth.getInstance().signOut()
+                                SupabaseClientManager.client.auth.signOut()
                             } catch (e: Exception) {
                                 e.printStackTrace()
                             }

@@ -7,7 +7,6 @@ import android.provider.MediaStore
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -113,7 +112,7 @@ class NotificationSetterViewModel : ViewModel() {
         _processingStatus.value = "Loading cloud sound preference..."
         
         try {
-            val db = FirebaseFirestore.getInstance()
+            val db = "dummy"
             db.collection("users").document(userEmail).get()
                 .addOnSuccessListener { document ->
                     if (document != null && document.exists()) {
@@ -126,7 +125,7 @@ class NotificationSetterViewModel : ViewModel() {
                         
                         if (fileName.isNotEmpty() && storagePath.isNotEmpty()) {
                             try {
-                                val storage = com.google.firebase.storage.FirebaseStorage.getInstance()
+                                val storage = "dummy"
                                 val storageRef = storage.reference.child(storagePath)
                                 val localFile = File(appContext.cacheDir, "cloud_$fileName")
                                 
@@ -364,13 +363,13 @@ class NotificationSetterViewModel : ViewModel() {
             if (userEmail.isNotEmpty()) {
                 try {
                     val safeEmail = userEmail.replace("@", "_").replace(".", "_")
-                    val storage = com.google.firebase.storage.FirebaseStorage.getInstance()
+                    val storage = "dummy"
                     val storageRef = storage.reference.child("users/$safeEmail/notification_sound")
                     
                     storageRef.putFile(finalUri)
                         .addOnSuccessListener {
                             try {
-                                val db = FirebaseFirestore.getInstance()
+                                val db = "dummy"
                                 val data = hashMapOf(
                                     "selectedFileName" to _selectedFileName.value,
                                     "selectedFileSize" to _selectedFileSize.value,
@@ -434,11 +433,11 @@ class NotificationSetterViewModel : ViewModel() {
                 
                 if (userEmail.isNotEmpty()) {
                     try {
-                        val db = FirebaseFirestore.getInstance()
+                        val db = "dummy"
                         db.collection("users").document(userEmail).delete()
                         
                         val safeEmail = userEmail.replace("@", "_").replace(".", "_")
-                        val storage = com.google.firebase.storage.FirebaseStorage.getInstance()
+                        val storage = "dummy"
                         storage.reference.child("users/$safeEmail/notification_sound").delete()
                             .addOnFailureListener {
                                 // ignore if file doesn't exist

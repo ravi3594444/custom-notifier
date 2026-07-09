@@ -1,0 +1,862 @@
+Initialized native services in: /opt/gradle/.gradle/native
+Initialized jansi services in: /opt/gradle/.gradle/native
+Removing 0 daemon stop events from registry
+Previous Daemon (9701) stopped at Thu Jul 09 15:45:14 UTC 2026 other compatible daemons were started and after being idle for 0 minutes and not recently used
+Starting a Gradle Daemon, 1 busy and 1 stopped Daemons could not be reused, use --status for details
+Starting process 'Gradle build daemon'. Working directory: /opt/gradle/.gradle/daemon/9.3.1 Command: /usr/lib/jvm/temurin-21-jdk-amd64/bin/java --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.xml/javax.xml.namespace=ALL-UNNAMED --add-opens=java.base/java.time=ALL-UNNAMED -Xmx4g -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -cp /opt/gradle/gradle-9.3.1/lib/gradle-daemon-main-9.3.1.jar -javaagent:/opt/gradle/gradle-9.3.1/lib/agents/gradle-instrumentation-agent-9.3.1.jar org.gradle.launcher.daemon.bootstrap.GradleDaemon 9.3.1
+Successfully started process 'Gradle build daemon'
+An attempt to start the daemon took 1.548 secs.
+The client will now receive all logging from the daemon (pid: 10288). The daemon log file: /opt/gradle/.gradle/daemon/9.3.1/daemon-10288.out.log
+Starting build in new daemon [memory: 4 GiB]
+Using 4 worker leases.
+Operational build model parameters: {requiresToolingModels=false, parallelProjectExecution=true, configureOnDemand=false, configurationCache=true, configurationCacheParallelStore=false, configurationCacheParallelLoad=true, isolatedProjects=false, parallelProjectConfiguration=false, intermediateModelCache=false, parallelToolingApiActions=true, invalidateCoupledProjects=false, modelAsProjectDependency=false, resilientModelBuilding=false}
+Received JVM installation metadata from '/usr/lib/jvm/temurin-21-jdk-amd64': {JAVA_HOME=/usr/lib/jvm/temurin-21-jdk-amd64, JAVA_VERSION=21.0.11, JAVA_VENDOR=Eclipse Adoptium, RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=21.0.11+10-LTS, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=21.0.11+10-LTS, VM_VENDOR=Eclipse Adoptium, OS_ARCH=amd64}
+Encryption key source: default Gradle keystore (pkcs12)
+Reusing configuration cache.
+Watching the file system is configured to be enabled if available
+Unable to list file systems to check whether they can be watched. Disabling watching. Reason: Could not query file systems: could not open mount file (errno 2: No such file or directory)
+File system watching is inactive
+Using local directory build cache for the root build (location = /opt/gradle/.gradle/caches/build-cache-1, remove unused entries = after 7 days).
+Tasks to be executed: [task ':app:preBuild', task ':app:preDebugBuild', task ':app:mergeDebugNativeDebugMetadata', task ':app:generateDebugBuildConfig', task ':app:generateDebugResources', task ':app:packageDebugResources', task ':app:processDebugNavigationResources', task ':app:parseDebugLocalResources', task ':app:generateDebugRFile', task ':app:kspDebugKotlin', task ':app:compileDebugKotlin', task ':app:javaPreCompileDebug', task ':app:compileDebugJavaWithJavac', task ':app:generateDebugAssets', task ':app:mergeDebugAssets', task ':app:compressDebugAssets', task ':app:processDebugJavaRes', task ':app:mergeDebugJavaResource', task ':app:checkDebugDuplicateClasses', task ':app:desugarDebugFileDependencies', task ':app:mergeExtDexDebug', task ':app:mergeLibDexDebug', task ':app:checkDebugAarMetadata', task ':app:mapDebugSourceSetPaths', task ':app:compileDebugNavigationResources', task ':app:mergeDebugResources', task ':app:createDebugCompatibleScreenManifests', task ':app:extractDeepLinksDebug', task ':app:processDebugMainManifest', task ':app:processDebugManifest', task ':app:processDebugManifestForPackage', task ':app:processDebugResources', task ':app:dexBuilderDebug', task ':app:mergeProjectDexDebug', task ':app:mergeDebugJniLibFolders', task ':app:mergeDebugNativeLibs', task ':app:stripDebugDebugSymbols', task ':app:validateSigningDebug', task ':app:writeDebugAppMetadata', task ':app:writeDebugSigningConfigVersions', task ':app:packageDebug', task ':app:createDebugApkListingFileRedirect', task ':app:assembleDebug', task ':app:preReleaseBuild', task ':app:mergeReleaseJniLibFolders', task ':app:mergeReleaseNativeLibs', task ':app:stripReleaseDebugSymbols', task ':app:extractReleaseNativeSymbolTables', task ':app:mergeReleaseNativeDebugMetadata', task ':app:checkReleaseDuplicateClasses', task ':app:generateReleaseBuildConfig', task ':app:generateReleaseResources', task ':app:packageReleaseResources', task ':app:processReleaseNavigationResources', task ':app:parseReleaseLocalResources', task ':app:generateReleaseRFile', task ':app:kspReleaseKotlin', task ':app:compileReleaseKotlin', task ':app:javaPreCompileRelease', task ':app:compileReleaseJavaWithJavac', task ':app:checkReleaseAarMetadata', task ':app:mapReleaseSourceSetPaths', task ':app:compileReleaseNavigationResources', task ':app:mergeReleaseResources', task ':app:createReleaseCompatibleScreenManifests', task ':app:extractDeepLinksRelease', task ':app:processReleaseMainManifest', task ':app:processReleaseManifest', task ':app:processReleaseManifestForPackage', task ':app:processReleaseResources', task ':app:dexBuilderRelease', task ':app:desugarReleaseFileDependencies', task ':app:mergeReleaseStartupProfile', task ':app:mergeExtDexRelease', task ':app:mergeDexRelease', task ':app:mergeReleaseArtProfile', task ':app:mergeReleaseGlobalSynthetics', task ':app:compileReleaseArtProfile', task ':app:generateReleaseAssets', task ':app:mergeReleaseAssets', task ':app:compressReleaseAssets', task ':app:extractReleaseVersionControlInfo', task ':app:extractProguardFiles', task ':app:generateReleaseLintVitalReportModel', task ':app:lintVitalAnalyzeRelease', task ':app:lintVitalReportRelease', task ':app:lintVitalRelease', task ':app:processReleaseJavaRes', task ':app:mergeReleaseJavaResource', task ':app:optimizeReleaseResources', task ':app:collectReleaseDependencies', task ':app:sdkReleaseDependencyData', task ':app:writeReleaseAppMetadata', task ':app:writeReleaseSigningConfigVersions', task ':app:packageRelease', task ':app:createReleaseApkListingFileRedirect', task ':app:assembleRelease', task ':app:assemble', task ':app:bundleDebugClassesToCompileJar', task ':app:preDebugAndroidTestBuild', task ':app:generateDebugAndroidTestLintModel', task ':app:generateDebugLintReportModel', task ':app:preDebugUnitTestBuild', task ':app:generateDebugUnitTestLintModel', task ':app:lintAnalyzeDebug', task ':app:lintAnalyzeDebugAndroidTest', task ':app:lintAnalyzeDebugUnitTest', task ':app:lintReportDebug', task ':app:lintDebug', task ':app:lint', task ':app:check', task ':app:build']
+Tasks that were excluded: []
+Resolve mutations for :app:preBuild (Thread[#50,included builds,5,main]) started.
+Resolve mutations for :app:generateDebugAssets (Thread[#53,Execution worker Thread 3,5,main]) started.
+Resolve mutations for :app:generateReleaseAssets (Thread[#51,Execution worker,5,main]) started.
+:app:generateDebugAssets (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:preBuild (Thread[#50,included builds,5,main]) started.
+:app:generateReleaseAssets (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:generateReleaseAssets UP-TO-DATE
+Skipping task ':app:generateReleaseAssets' as it has no actions.
+
+> Task :app:generateDebugAssets UP-TO-DATE
+Skipping task ':app:generateDebugAssets' as it has no actions.
+
+> Task :app:preBuild UP-TO-DATE
+Skipping task ':app:preBuild' as it has no actions.
+Resolve mutations for :app:preDebugBuild (Thread[#50,included builds,5,main]) started.
+:app:preDebugBuild (Thread[#50,included builds,5,main]) started.
+Resolve mutations for :app:preReleaseBuild (Thread[#52,Execution worker Thread 2,5,main]) started.
+:app:preReleaseBuild (Thread[#52,Execution worker Thread 2,5,main]) started.
+
+> Task :app:preReleaseBuild UP-TO-DATE
+Skipping task ':app:preReleaseBuild' as it has no actions.
+Resolve mutations for :app:mergeReleaseJniLibFolders (Thread[#52,Execution worker Thread 2,5,main]) started.
+Resolve mutations for :app:checkReleaseDuplicateClasses (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:preDebugBuild UP-TO-DATE
+Skipping task ':app:preDebugBuild' as it has no actions.
+Resolve mutations for :app:mergeDebugNativeDebugMetadata (Thread[#50,included builds,5,main]) started.
+Resolve mutations for :app:generateDebugBuildConfig (Thread[#51,Execution worker,5,main]) started.
+Resolve mutations for :app:generateDebugResources (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:mergeDebugNativeDebugMetadata (Thread[#50,included builds,5,main]) started.
+:app:generateDebugBuildConfig (Thread[#51,Execution worker,5,main]) started.
+Resolve mutations for :app:processDebugNavigationResources (Thread[#52,Execution worker Thread 2,5,main]) started.
+Build a004b1cc-d7ad-4978-b343-479055f26670 is started
+:app:processDebugNavigationResources (Thread[#52,Execution worker Thread 2,5,main]) started.
+:app:generateDebugResources (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+Skipping task ':app:mergeDebugNativeDebugMetadata' as it has no source files and no previous output files.
+Resolve mutations for :app:javaPreCompileDebug (Thread[#50,included builds,5,main]) started.
+:app:javaPreCompileDebug (Thread[#50,included builds,5,main]) started.
+
+> Task :app:generateDebugResources UP-TO-DATE
+Build cache key for task ':app:generateDebugResources' is c4305689fe5eafbbc38e8713bb147fb3
+Skipping task ':app:generateDebugResources' as it is up-to-date.
+
+> Task :app:generateDebugBuildConfig UP-TO-DATE
+Build cache key for task ':app:generateDebugBuildConfig' is 3e0410088fe90717500092c69f9ab1e9
+Skipping task ':app:generateDebugBuildConfig' as it is up-to-date.
+
+> Task :app:javaPreCompileDebug UP-TO-DATE
+Build cache key for task ':app:javaPreCompileDebug' is b38c0f6643ca870707e749679ce9f5b5
+Skipping task ':app:javaPreCompileDebug' as it is up-to-date.
+Resolve mutations for :app:packageDebugResources (Thread[#53,Execution worker Thread 3,5,main]) started.
+Resolve mutations for :app:kspDebugKotlin (Thread[#51,Execution worker,5,main]) started.
+Resolve mutations for :app:mergeDebugAssets (Thread[#50,included builds,5,main]) started.
+:app:mergeDebugAssets (Thread[#50,included builds,5,main]) started.
+:app:kspDebugKotlin (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:kspDebugKotlin SKIPPED
+Skipping task ':app:kspDebugKotlin' as task onlyIf 'Task satisfies onlyIf spec' is false.
+Resolve mutations for :app:checkDebugDuplicateClasses (Thread[#51,Execution worker,5,main]) started.
+:app:checkDebugDuplicateClasses (Thread[#51,Execution worker,5,main]) started.
+:app:packageDebugResources (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:packageDebugResources UP-TO-DATE
+Build cache key for task ':app:packageDebugResources' is 560346ad7c1a0a25260d51f9cb593550
+Skipping task ':app:packageDebugResources' as it is up-to-date.
+Resolve mutations for :app:desugarDebugFileDependencies (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:desugarDebugFileDependencies (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+Build cache key for task ':app:desugarDebugFileDependencies' is eb528dfa43bb0a586ac599570ef73469
+Skipping task ':app:desugarDebugFileDependencies' as it is up-to-date.
+Resolve mutations for :app:checkDebugAarMetadata (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:checkDebugAarMetadata (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:processDebugNavigationResources UP-TO-DATE
+Invalidating in-memory cache of /opt/gradle/.gradle/caches/9.3.1/fileHashes/fileHashes.bin
+Invalidating in-memory cache of /opt/gradle/.gradle/caches/9.3.1/fileHashes/resourceHashesCache.bin
+Build cache key for task ':app:processDebugNavigationResources' is 0b2e4a688b29929e282e43c6939cb15b
+Skipping task ':app:processDebugNavigationResources' as it is up-to-date.
+Resolve mutations for :app:parseDebugLocalResources (Thread[#52,Execution worker Thread 2,5,main]) started.
+:app:parseDebugLocalResources (Thread[#52,Execution worker Thread 2,5,main]) started.
+
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+Caching disabled for task ':app:checkDebugAarMetadata' because:
+  Caching has been disabled for the task
+Skipping task ':app:checkDebugAarMetadata' as it is up-to-date.
+Resolve mutations for :app:mapDebugSourceSetPaths (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:mapDebugSourceSetPaths (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+Caching disabled for task ':app:checkDebugDuplicateClasses' because:
+  Caching has been disabled for the task
+Skipping task ':app:checkDebugDuplicateClasses' as it is up-to-date.
+Resolve mutations for :app:mergeExtDexDebug (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:mergeDebugAssets UP-TO-DATE
+Caching disabled for task ':app:mergeDebugAssets' because:
+  Simple merging task
+Skipping task ':app:mergeDebugAssets' as it is up-to-date.
+
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+Caching disabled for task ':app:mapDebugSourceSetPaths' because:
+  Caching has been disabled for the task
+Skipping task ':app:mapDebugSourceSetPaths' as it is up-to-date.
+:app:mergeExtDexDebug (Thread[#51,Execution worker,5,main]) started.
+Resolve mutations for :app:compressDebugAssets (Thread[#50,included builds,5,main]) started.
+Resolve mutations for :app:mergeLibDexDebug (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:mergeLibDexDebug (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:parseDebugLocalResources UP-TO-DATE
+Build cache key for task ':app:parseDebugLocalResources' is 67d6310739d262f15083609399463af5
+Skipping task ':app:parseDebugLocalResources' as it is up-to-date.
+
+> Task :app:mergeLibDexDebug UP-TO-DATE
+Build cache key for task ':app:mergeLibDexDebug' is 024acc6a6953da4116ae4ed67c1f55c2
+Skipping task ':app:mergeLibDexDebug' as it is up-to-date.
+:app:compressDebugAssets (Thread[#50,included builds,5,main]) started.
+Resolve mutations for :app:compileDebugNavigationResources (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:compileDebugNavigationResources (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:compressDebugAssets UP-TO-DATE
+Build cache key for task ':app:compressDebugAssets' is 2d0fe6702be3eca5c4a70430362db30e
+Skipping task ':app:compressDebugAssets' as it is up-to-date.
+Resolve mutations for :app:mergeDebugResources (Thread[#50,included builds,5,main]) started.
+Resolve mutations for :app:generateDebugRFile (Thread[#52,Execution worker Thread 2,5,main]) started.
+:app:mergeDebugResources (Thread[#50,included builds,5,main]) started.
+
+> Task :app:compileDebugNavigationResources UP-TO-DATE
+Build cache key for task ':app:compileDebugNavigationResources' is c0bd514165c6bdf73f74fd6ce1d9f41b
+Skipping task ':app:compileDebugNavigationResources' as it is up-to-date.
+:app:generateDebugRFile (Thread[#52,Execution worker Thread 2,5,main]) started.
+Resolve mutations for :app:createDebugCompatibleScreenManifests (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:generateDebugRFile UP-TO-DATE
+Build cache key for task ':app:generateDebugRFile' is 05d2f0648311fe46d9eb2deacfedf5ee
+Skipping task ':app:generateDebugRFile' as it is up-to-date.
+Resolve mutations for :app:compileDebugKotlin (Thread[#52,Execution worker Thread 2,5,main]) started.
+:app:createDebugCompatibleScreenManifests (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:compileDebugKotlin (Thread[#52,Execution worker Thread 2,5,main]) started.
+
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+Caching disabled for task ':app:createDebugCompatibleScreenManifests' because:
+  Caching has been disabled for the task
+Skipping task ':app:createDebugCompatibleScreenManifests' as it is up-to-date.
+Resolve mutations for :app:extractDeepLinksDebug (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:extractDeepLinksDebug (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+Build cache key for task ':app:extractDeepLinksDebug' is e13fe013459a86c80af7318c47dd11a6
+Skipping task ':app:extractDeepLinksDebug' as it is up-to-date.
+Resolve mutations for :app:processDebugMainManifest (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:processDebugMainManifest (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:mergeExtDexDebug UP-TO-DATE
+Build cache key for task ':app:mergeExtDexDebug' is 47ae9865f33bae4023f042a66cee4f2b
+Skipping task ':app:mergeExtDexDebug' as it is up-to-date.
+Resolve mutations for :app:mergeDebugJniLibFolders (Thread[#51,Execution worker,5,main]) started.
+:app:mergeDebugJniLibFolders (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:mergeDebugResources UP-TO-DATE
+Build cache key for task ':app:mergeDebugResources' is 5b08c2b55d2bf4bc3c6d7ef6c37c36fc
+Skipping task ':app:mergeDebugResources' as it is up-to-date.
+Resolve mutations for :app:validateSigningDebug (Thread[#50,included builds,5,main]) started.
+:app:validateSigningDebug (Thread[#50,included builds,5,main]) started.
+
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+Caching disabled for task ':app:mergeDebugJniLibFolders' because:
+  Simple merging task
+Skipping task ':app:mergeDebugJniLibFolders' as it is up-to-date.
+Resolve mutations for :app:mergeDebugNativeLibs (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:validateSigningDebug UP-TO-DATE
+Caching disabled for task ':app:validateSigningDebug' because:
+  Caching has been disabled for the task
+Skipping task ':app:validateSigningDebug' as it is up-to-date.
+Resolve mutations for :app:writeDebugAppMetadata (Thread[#50,included builds,5,main]) started.
+:app:mergeDebugNativeLibs (Thread[#51,Execution worker,5,main]) started.
+:app:writeDebugAppMetadata (Thread[#50,included builds,5,main]) started.
+
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+Caching disabled for task ':app:writeDebugAppMetadata' because:
+  Caching has been disabled for the task
+Skipping task ':app:writeDebugAppMetadata' as it is up-to-date.
+Resolve mutations for :app:writeDebugSigningConfigVersions (Thread[#50,included builds,5,main]) started.
+:app:writeDebugSigningConfigVersions (Thread[#50,included builds,5,main]) started.
+
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+Caching disabled for task ':app:writeDebugSigningConfigVersions' because:
+  Caching has been disabled for the task
+Skipping task ':app:writeDebugSigningConfigVersions' as it is up-to-date.
+:app:mergeReleaseJniLibFolders (Thread[#50,included builds,5,main]) started.
+
+> Task :app:mergeReleaseJniLibFolders UP-TO-DATE
+Caching disabled for task ':app:mergeReleaseJniLibFolders' because:
+  Simple merging task
+Skipping task ':app:mergeReleaseJniLibFolders' as it is up-to-date.
+Resolve mutations for :app:mergeReleaseNativeLibs (Thread[#50,included builds,5,main]) started.
+:app:mergeReleaseNativeLibs (Thread[#50,included builds,5,main]) started.
+
+> Task :app:mergeReleaseNativeLibs UP-TO-DATE
+Caching disabled for task ':app:mergeReleaseNativeLibs' because:
+  Caching has been disabled for the task
+Skipping task ':app:mergeReleaseNativeLibs' as it is up-to-date.
+Resolve mutations for :app:stripReleaseDebugSymbols (Thread[#50,included builds,5,main]) started.
+
+> Task :app:processDebugMainManifest UP-TO-DATE
+Build cache key for task ':app:processDebugMainManifest' is fe6c099673000204867dc45413d01ad8
+Skipping task ':app:processDebugMainManifest' as it is up-to-date.
+:app:stripReleaseDebugSymbols (Thread[#50,included builds,5,main]) started.
+Resolve mutations for :app:processDebugManifest (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:processDebugManifest (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+Caching disabled for task ':app:mergeDebugNativeLibs' because:
+  Caching has been disabled for the task
+Skipping task ':app:mergeDebugNativeLibs' as it is up-to-date.
+
+> Task :app:stripReleaseDebugSymbols UP-TO-DATE
+Caching disabled for task ':app:stripReleaseDebugSymbols' because:
+  Caching has been disabled for the task
+Skipping task ':app:stripReleaseDebugSymbols' as it is up-to-date.
+Resolve mutations for :app:stripDebugDebugSymbols (Thread[#51,Execution worker,5,main]) started.
+Resolve mutations for :app:extractReleaseNativeSymbolTables (Thread[#50,included builds,5,main]) started.
+:app:stripDebugDebugSymbols (Thread[#51,Execution worker,5,main]) started.
+:app:extractReleaseNativeSymbolTables (Thread[#50,included builds,5,main]) started.
+
+> Task :app:processDebugManifest UP-TO-DATE
+Build cache key for task ':app:processDebugManifest' is 09fe33c38ba9409edd53b5ec5dcf712e
+Skipping task ':app:processDebugManifest' as it is up-to-date.
+Resolve mutations for :app:processDebugManifestForPackage (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:processDebugManifestForPackage (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:extractReleaseNativeSymbolTables UP-TO-DATE
+Build cache key for task ':app:extractReleaseNativeSymbolTables' is 46ea9a8d0d52c89b8eb1154adabf304b
+Skipping task ':app:extractReleaseNativeSymbolTables' as it is up-to-date.
+
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+Caching disabled for task ':app:stripDebugDebugSymbols' because:
+  Caching has been disabled for the task
+Skipping task ':app:stripDebugDebugSymbols' as it is up-to-date.
+Resolve mutations for :app:mergeReleaseNativeDebugMetadata (Thread[#50,included builds,5,main]) started.
+:app:checkReleaseDuplicateClasses (Thread[#51,Execution worker,5,main]) started.
+:app:mergeReleaseNativeDebugMetadata (Thread[#50,included builds,5,main]) started.
+
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+Build cache key for task ':app:processDebugManifestForPackage' is a8d5b666f2501d310d420aefd6bfa410
+Skipping task ':app:processDebugManifestForPackage' as it is up-to-date.
+Resolve mutations for :app:processDebugResources (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+Skipping task ':app:mergeReleaseNativeDebugMetadata' as it has no source files and no previous output files.
+Resolve mutations for :app:generateReleaseBuildConfig (Thread[#50,included builds,5,main]) started.
+:app:generateReleaseBuildConfig (Thread[#50,included builds,5,main]) started.
+:app:processDebugResources (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:generateReleaseBuildConfig UP-TO-DATE
+Build cache key for task ':app:generateReleaseBuildConfig' is 156ed2e8bca9a347928ecb5f5cbac4cb
+Skipping task ':app:generateReleaseBuildConfig' as it is up-to-date.
+Resolve mutations for :app:generateReleaseResources (Thread[#50,included builds,5,main]) started.
+:app:generateReleaseResources (Thread[#50,included builds,5,main]) started.
+
+> Task :app:generateReleaseResources UP-TO-DATE
+Build cache key for task ':app:generateReleaseResources' is c4305689fe5eafbbc38e8713bb147fb3
+Skipping task ':app:generateReleaseResources' as it is up-to-date.
+Resolve mutations for :app:packageReleaseResources (Thread[#50,included builds,5,main]) started.
+:app:packageReleaseResources (Thread[#50,included builds,5,main]) started.
+
+> Task :app:packageReleaseResources UP-TO-DATE
+Build cache key for task ':app:packageReleaseResources' is 2527e0114b94647a4023afe9a52f3017
+Skipping task ':app:packageReleaseResources' as it is up-to-date.
+Resolve mutations for :app:processReleaseNavigationResources (Thread[#50,included builds,5,main]) started.
+:app:processReleaseNavigationResources (Thread[#50,included builds,5,main]) started.
+
+> Task :app:checkReleaseDuplicateClasses UP-TO-DATE
+Caching disabled for task ':app:checkReleaseDuplicateClasses' because:
+  Caching has been disabled for the task
+Skipping task ':app:checkReleaseDuplicateClasses' as it is up-to-date.
+Resolve mutations for :app:kspReleaseKotlin (Thread[#51,Execution worker,5,main]) started.
+:app:kspReleaseKotlin (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:kspReleaseKotlin SKIPPED
+Skipping task ':app:kspReleaseKotlin' as task onlyIf 'Task satisfies onlyIf spec' is false.
+Resolve mutations for :app:javaPreCompileRelease (Thread[#51,Execution worker,5,main]) started.
+:app:javaPreCompileRelease (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:javaPreCompileRelease UP-TO-DATE
+Build cache key for task ':app:javaPreCompileRelease' is b38c0f6643ca870707e749679ce9f5b5
+Skipping task ':app:javaPreCompileRelease' as it is up-to-date.
+Resolve mutations for :app:checkReleaseAarMetadata (Thread[#51,Execution worker,5,main]) started.
+:app:checkReleaseAarMetadata (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:processReleaseNavigationResources UP-TO-DATE
+Build cache key for task ':app:processReleaseNavigationResources' is 0b2e4a688b29929e282e43c6939cb15b
+Skipping task ':app:processReleaseNavigationResources' as it is up-to-date.
+
+> Task :app:checkReleaseAarMetadata UP-TO-DATE
+Caching disabled for task ':app:checkReleaseAarMetadata' because:
+  Caching has been disabled for the task
+Skipping task ':app:checkReleaseAarMetadata' as it is up-to-date.
+Resolve mutations for :app:parseReleaseLocalResources (Thread[#50,included builds,5,main]) started.
+Resolve mutations for :app:mapReleaseSourceSetPaths (Thread[#51,Execution worker,5,main]) started.
+:app:parseReleaseLocalResources (Thread[#50,included builds,5,main]) started.
+:app:mapReleaseSourceSetPaths (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:parseReleaseLocalResources UP-TO-DATE
+Build cache key for task ':app:parseReleaseLocalResources' is 67d6310739d262f15083609399463af5
+Skipping task ':app:parseReleaseLocalResources' as it is up-to-date.
+
+> Task :app:mapReleaseSourceSetPaths UP-TO-DATE
+Caching disabled for task ':app:mapReleaseSourceSetPaths' because:
+  Caching has been disabled for the task
+Skipping task ':app:mapReleaseSourceSetPaths' as it is up-to-date.
+Resolve mutations for :app:compileReleaseNavigationResources (Thread[#51,Execution worker,5,main]) started.
+Resolve mutations for :app:generateReleaseRFile (Thread[#50,included builds,5,main]) started.
+:app:compileReleaseNavigationResources (Thread[#51,Execution worker,5,main]) started.
+:app:generateReleaseRFile (Thread[#50,included builds,5,main]) started.
+
+> Task :app:compileReleaseNavigationResources UP-TO-DATE
+Build cache key for task ':app:compileReleaseNavigationResources' is c0bd514165c6bdf73f74fd6ce1d9f41b
+Skipping task ':app:compileReleaseNavigationResources' as it is up-to-date.
+Resolve mutations for :app:mergeReleaseResources (Thread[#51,Execution worker,5,main]) started.
+:app:mergeReleaseResources (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:generateReleaseRFile UP-TO-DATE
+Build cache key for task ':app:generateReleaseRFile' is 05d2f0648311fe46d9eb2deacfedf5ee
+Skipping task ':app:generateReleaseRFile' as it is up-to-date.
+Resolve mutations for :app:compileReleaseKotlin (Thread[#50,included builds,5,main]) started.
+:app:compileReleaseKotlin (Thread[#50,included builds,5,main]) started.
+
+> Task :app:mergeReleaseResources UP-TO-DATE
+Build cache key for task ':app:mergeReleaseResources' is f0645a84291ea88baf6e8157cb2cf35c
+Skipping task ':app:mergeReleaseResources' as it is up-to-date.
+Resolve mutations for :app:createReleaseCompatibleScreenManifests (Thread[#51,Execution worker,5,main]) started.
+:app:createReleaseCompatibleScreenManifests (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:createReleaseCompatibleScreenManifests UP-TO-DATE
+Caching disabled for task ':app:createReleaseCompatibleScreenManifests' because:
+  Caching has been disabled for the task
+Skipping task ':app:createReleaseCompatibleScreenManifests' as it is up-to-date.
+Resolve mutations for :app:extractDeepLinksRelease (Thread[#51,Execution worker,5,main]) started.
+:app:extractDeepLinksRelease (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:extractDeepLinksRelease UP-TO-DATE
+Build cache key for task ':app:extractDeepLinksRelease' is e13fe013459a86c80af7318c47dd11a6
+Skipping task ':app:extractDeepLinksRelease' as it is up-to-date.
+Resolve mutations for :app:processReleaseMainManifest (Thread[#51,Execution worker,5,main]) started.
+:app:processReleaseMainManifest (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:processReleaseMainManifest UP-TO-DATE
+Build cache key for task ':app:processReleaseMainManifest' is c88c2af735c115fbb145b9d48890b7c2
+Skipping task ':app:processReleaseMainManifest' as it is up-to-date.
+Resolve mutations for :app:processReleaseManifest (Thread[#51,Execution worker,5,main]) started.
+:app:processReleaseManifest (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:processReleaseManifest UP-TO-DATE
+Build cache key for task ':app:processReleaseManifest' is 9f555d00dbcb84e03107a084711a68cc
+Skipping task ':app:processReleaseManifest' as it is up-to-date.
+Resolve mutations for :app:processReleaseManifestForPackage (Thread[#51,Execution worker,5,main]) started.
+:app:processReleaseManifestForPackage (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:processReleaseManifestForPackage UP-TO-DATE
+Build cache key for task ':app:processReleaseManifestForPackage' is 049669eef0157e688c77de904f784a80
+Skipping task ':app:processReleaseManifestForPackage' as it is up-to-date.
+Resolve mutations for :app:processReleaseResources (Thread[#51,Execution worker,5,main]) started.
+:app:processReleaseResources (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:compileDebugKotlin
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+Build cache key for task ':app:compileDebugKotlin' is 9983b0498220f3401b8ec691f9d664b0
+Task ':app:compileDebugKotlin' is not up-to-date because:
+  Task has failed previously.
+The input changes require a full rebuild for incremental task ':app:compileDebugKotlin'.
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/build/generated/ksp/debug/java', not found
+file or directory '/app/applet/app/build/generated/ksp/debug/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/build/generated/ksp/debug/java', not found
+file or directory '/app/applet/app/build/generated/ksp/debug/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/build/generated/ksp/debug/java', not found
+file or directory '/app/applet/app/build/generated/ksp/debug/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/kotlin', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/src/debug/java', not found
+file or directory '/app/applet/app/build/generated/ksp/debug/java', not found
+file or directory '/app/applet/app/build/generated/ksp/debug/kotlin', not found
+Kotlin source files: /app/applet/app/src/main/java/com/example/ui/theme/Color.kt, /app/applet/app/src/main/java/com/example/ui/theme/Type.kt, /app/applet/app/src/main/java/com/example/ui/theme/Theme.kt, /app/applet/app/src/main/java/com/example/AudioProcessor.kt, /app/applet/app/src/main/java/com/example/RingtoneUtils.kt, /app/applet/app/src/main/java/com/example/SplashScreen.kt, /app/applet/app/src/main/java/com/example/LoginScreen.kt, /app/applet/app/src/main/java/com/example/SupabaseClientManager.kt, /app/applet/app/src/main/java/com/example/MainActivity.kt, /app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt
+Java source files: /app/applet/app/build/generated/source/buildConfig/debug/com/example/BuildConfig.java
+Script source files: 
+Script file extensions: 
+Using Kotlin/JVM incremental compilation
+[KOTLIN] Kotlin compilation 'jdkHome' argument: /usr/lib/jvm/temurin-21-jdk-amd64
+
+> Task :app:processDebugResources UP-TO-DATE
+Build cache key for task ':app:processDebugResources' is 855a7b6c896a2aeea2d5559ddf4a63fb
+Skipping task ':app:processDebugResources' as it is up-to-date.
+Resolve mutations for :app:desugarReleaseFileDependencies (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:desugarReleaseFileDependencies (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:processReleaseResources UP-TO-DATE
+Invalidating in-memory cache of /opt/gradle/.gradle/caches/9.3.1/fileHashes/fileHashes.bin
+Invalidating in-memory cache of /opt/gradle/.gradle/caches/9.3.1/fileHashes/resourceHashesCache.bin
+Invalidating in-memory cache of /opt/gradle/.gradle/caches/journal-1/file-access.bin
+Build cache key for task ':app:processReleaseResources' is 7abaaa5d883bd86f8851e7a054e85dec
+Skipping task ':app:processReleaseResources' as it is up-to-date.
+Resolve mutations for :app:mergeReleaseStartupProfile (Thread[#51,Execution worker,5,main]) started.
+:app:mergeReleaseStartupProfile (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:desugarReleaseFileDependencies UP-TO-DATE
+Build cache key for task ':app:desugarReleaseFileDependencies' is d84094670c77a2c44700eee5667c0cb5
+Skipping task ':app:desugarReleaseFileDependencies' as it is up-to-date.
+Resolve mutations for :app:mergeReleaseArtProfile (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:mergeReleaseArtProfile (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:mergeReleaseStartupProfile UP-TO-DATE
+Caching disabled for task ':app:mergeReleaseStartupProfile' because:
+  Simple merging task
+Skipping task ':app:mergeReleaseStartupProfile' as it is up-to-date.
+Resolve mutations for :app:mergeExtDexRelease (Thread[#51,Execution worker,5,main]) started.
+:app:mergeExtDexRelease (Thread[#51,Execution worker,5,main]) started.
+
+> Task :app:compileReleaseKotlin
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/release/kotlin', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/release/kotlin', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/release/kotlin', not found
+file or directory '/app/applet/app/src/release/java', not found
+Build cache key for task ':app:compileReleaseKotlin' is 9396b3f0f9ae8840b6513a546d2394b5
+Task ':app:compileReleaseKotlin' is not up-to-date because:
+  Task has failed previously.
+The input changes require a full rebuild for incremental task ':app:compileReleaseKotlin'.
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/release/kotlin', not found
+file or directory '/app/applet/app/src/release/kotlin', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/build/generated/ksp/release/java', not found
+file or directory '/app/applet/app/build/generated/ksp/release/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/release/kotlin', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/release/kotlin', not found
+file or directory '/app/applet/app/src/release/kotlin', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/build/generated/ksp/release/java', not found
+file or directory '/app/applet/app/build/generated/ksp/release/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/release/kotlin', not found
+file or directory '/app/applet/app/src/release/kotlin', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/build/generated/ksp/release/java', not found
+file or directory '/app/applet/app/build/generated/ksp/release/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/main/kotlin', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/release/kotlin', not found
+file or directory '/app/applet/app/src/release/kotlin', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/src/release/java', not found
+file or directory '/app/applet/app/build/generated/ksp/release/java', not found
+file or directory '/app/applet/app/build/generated/ksp/release/kotlin', not found
+Kotlin source files: /app/applet/app/src/main/java/com/example/ui/theme/Color.kt, /app/applet/app/src/main/java/com/example/ui/theme/Type.kt, /app/applet/app/src/main/java/com/example/ui/theme/Theme.kt, /app/applet/app/src/main/java/com/example/AudioProcessor.kt, /app/applet/app/src/main/java/com/example/RingtoneUtils.kt, /app/applet/app/src/main/java/com/example/SplashScreen.kt, /app/applet/app/src/main/java/com/example/LoginScreen.kt, /app/applet/app/src/main/java/com/example/SupabaseClientManager.kt, /app/applet/app/src/main/java/com/example/MainActivity.kt, /app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt
+Java source files: /app/applet/app/build/generated/source/buildConfig/release/com/example/BuildConfig.java
+Script source files: 
+Script file extensions: 
+Using Kotlin/JVM incremental compilation
+[KOTLIN] Kotlin compilation 'jdkHome' argument: /usr/lib/jvm/temurin-21-jdk-amd64
+Options for KOTLIN DAEMON: IncrementalCompilationOptions(super=CompilationOptions(compilerMode=INCREMENTAL_COMPILER, targetPlatform=JVM, reportCategories=[0, 3], reportSeverity=2, requestedCompilationResults=[0], kotlinScriptExtensions=[]), sourceChanges=org.jetbrains.kotlin.buildtools.api.SourcesChanges$Unknown@71d25c01, classpathChanges=NotAvailableForNonIncrementalRun, workingDir=/app/applet/app/build/kotlin/compileReleaseKotlin/cacheable, multiModuleICSettings=MultiModuleICSettings(buildHistoryFile=/app/applet/app/build/kotlin/compileReleaseKotlin/local-state/build-history.bin, useModuleDetection=true), icFeatures=IncrementalCompilationFeatures(usePreciseJavaTracking=true, withAbiSnapshot=false, preciseCompilationResultsBackup=true, keepIncrementalCompilationCachesInMemory=true, enableUnsafeIncrementalCompilationForMultiplatform=false, enableMonotonousIncrementalCompileSetExpansion=true), outputFiles=[/app/applet/app/build/intermediates/built_in_kotlinc/release/compileReleaseKotlin/classes, /app/applet/app/build/kotlin/compileReleaseKotlin/cacheable, /app/applet/app/build/kotlin/compileReleaseKotlin/local-state])
+
+> Task :app:mergeReleaseArtProfile
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/08f8262193370fb605c2acf6ba0fe6fc/transformed/navigation-common-2.8.9 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/1d7191c540e6c42ec634f1beb55b07db/transformed/navigation-compose-2.8.9 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/59d553e0ac53fea4236549ef0df3b18a/transformed/activity-1.10.1 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/3f7b3820b84e60fa1af7efb93a29d19f/transformed/material3-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/06affcc00fe24d44db42704ae1bb01e7/transformed/customview-poolingcontainer-1.0.0 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/b232ebecfbb1406c3f2378756ffd166c/transformed/core-ktx-1.18.0 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/b4b2bd285925112a9402983f8e80327a/transformed/postgrest-kt-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/65bae07da92959c5ce02fd9dacabf62f/transformed/storage-kt-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/92d7ddc56549e215ec48e172ea6c255f/transformed/auth-kt-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/4948045618a7efa18011fe09406d1f28/transformed/browser-1.8.0 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/0bd0eaa2814ca20e48b563c665ffc3a1/transformed/material-ripple-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/eac7a41fb3244ad786a7409e709620ec/transformed/foundation-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/85f0944e43009f593a70bc478d5f9187/transformed/animation-core-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/ec6a18e7b5e029edee6bd3fcc2fe6175/transformed/animation-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/9099ddd616a09542075c8f904cffe452/transformed/foundation-layout-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/1f8b742cbe011625c48997d3e4fa4b53/transformed/autofill-1.0.0 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/392a781ebe401327ef823e7bc4526c47/transformed/ui-geometry-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/ea8c04c5ca960682c75f7d393abae2fd/transformed/ui-tooling-preview-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/a8614d6aea341c7d2f56e99b9dcec410/transformed/ui-util-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/679ba2e284ad629d391c8277e144c4e6/transformed/ui-unit-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/6cc6735e6c959b7676cbdab67ff2e2b7/transformed/ui-text-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/9ebb6d758cb4842c695e3b32f6012906/transformed/ui-graphics-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/26c00ed9195369d25c9e3b12bfc3c7c8/transformed/graphics-path-1.0.1 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/645b390cf787d12240bca3340c101929/transformed/emoji2-1.3.0 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/00db87f5bd2ed8e349a4132e76f87908/transformed/core-1.18.0 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/6f0fbc9c3ad3f6b714b2459878443c40/transformed/savedstate-ktx-1.2.1 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/a3ee44974eaa57699515484066d086d9/transformed/savedstate-1.2.1 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/d10fec687f82aada5e38fe20c63832c5/transformed/supabase-kt-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/54c6e24efa970f440031ee9b828c113a/transformed/lifecycle-process-2.8.7 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/e397346e1b3e294894278d30b4fbf26f/transformed/lifecycle-livedata-core-2.8.7 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/8c7ce9a286357d7e5ce330667f933c86/transformed/lifecycle-viewmodel-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/7d3dc359ca2dc8256e2b8edcbcf562c5/transformed/lifecycle-runtime-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/c7a801988c3a506f86222174248fd505/transformed/lifecycle-viewmodel-savedstate-2.8.7 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/f89411f083bf5a9512166b3505f0b365/transformed/lifecycle-viewmodel-ktx-2.8.7 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/42ade114a91379fd45a84f5414f2fad9/transformed/lifecycle-runtime-ktx-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/e5588de5e164fa6a15e2afb3b22a51b1/transformed/lifecycle-runtime-compose-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/adf08b5d7665699348965a987362488d/transformed/lifecycle-viewmodel-compose-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/1e80497e54db30be82b4b3c7bb631f60/transformed/material-icons-extended-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/beb747688028fc2c19c3805d10dbd62d/transformed/material-icons-core-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/56e35efb02aafd904df0a79e2e0e4317/transformed/ui-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/fff08659efadd977596c9d5eeb3f24fd/transformed/activity-ktx-1.10.1 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/b0377bc64743130d79b739bb3d33fa27/transformed/activity-compose-1.10.1 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/dcd50543b02dcd8df9b6ec2c963ad7e1/transformed/runtime-saveable-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/8d160679b334f5f50c68c8f31a053dcb/transformed/runtime-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/67e4f7c2fbe3645cf7435bb4b3d57042/transformed/navigation-runtime-2.8.9 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/069a06f6380b7795404cab0a0acfeb9d/transformed/multiplatform-settings-coroutines-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/956cbf0f31c4fdde90d08dc7b1a234c5/transformed/multiplatform-settings-no-arg-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/3991ea440e071373be1db8a679656eab/transformed/profileinstaller-1.4.0 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/6fc5fc3fbf7bc81b307aa23bf65eee60/transformed/startup-runtime-1.2.0 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/9243d4b50f863540c5c0333749bd4b76/transformed/tracing-1.2.0 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/2e3365842540045a6a3405e337ae8acd/transformed/interpolator-1.0.0 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/8d692bbeab6d7f7c5ec4ec9e3a78505a/transformed/versionedparcelable-1.1.1 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/a1dc873d65dd369d6bd2f42ac50bbb5b/transformed/core-runtime-2.2.0 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/dde5709959c1feed5ee6740aa91a3d55/transformed/annotation-experimental-1.4.1 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/3c91db252f04fddfa6d6d623dac22925/transformed/core-viewtree-1.0.0 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/443573f71461c0fcc8b6a49f9588f4b8/transformed/kermit-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/39b0b945bbd81dde27f955cadcda7e1a/transformed/multiplatform-settings-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/c8a28539b2fda2f4fbcca00ad22118e1/transformed/kermit-core-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/c4acea5dc3d900071117b3fb677e0c88/transformed/navigation-common-ktx-2.8.9 because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/3d0c01cb880e9d8eb025a9ffc69d6744/transformed/navigation-runtime-ktx-2.8.9 because:
+  Caching not enabled.
+Caching disabled for task ':app:mergeReleaseArtProfile' because:
+  Simple merging task
+Task ':app:mergeReleaseArtProfile' is not up-to-date because:
+  No history is available.
+file or directory '/app/applet/app/src/main/baselineProfiles', not found
+file or directory '/app/applet/app/src/release/baselineProfiles', not found
+Resolve mutations for :app:mergeReleaseAssets (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:mergeReleaseAssets (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:compileDebugKotlin
+Options for KOTLIN DAEMON: IncrementalCompilationOptions(super=CompilationOptions(compilerMode=INCREMENTAL_COMPILER, targetPlatform=JVM, reportCategories=[0, 3], reportSeverity=2, requestedCompilationResults=[0], kotlinScriptExtensions=[]), sourceChanges=org.jetbrains.kotlin.buildtools.api.SourcesChanges$Unknown@71d25c01, classpathChanges=NotAvailableForNonIncrementalRun, workingDir=/app/applet/app/build/kotlin/compileDebugKotlin/cacheable, multiModuleICSettings=MultiModuleICSettings(buildHistoryFile=/app/applet/app/build/kotlin/compileDebugKotlin/local-state/build-history.bin, useModuleDetection=true), icFeatures=IncrementalCompilationFeatures(usePreciseJavaTracking=true, withAbiSnapshot=false, preciseCompilationResultsBackup=true, keepIncrementalCompilationCachesInMemory=true, enableUnsafeIncrementalCompilationForMultiplatform=false, enableMonotonousIncrementalCompileSetExpansion=true), outputFiles=[/app/applet/app/build/intermediates/built_in_kotlinc/debug/compileDebugKotlin/classes, /app/applet/app/build/kotlin/compileDebugKotlin/cacheable, /app/applet/app/build/kotlin/compileDebugKotlin/local-state])
+
+> Task :app:mergeReleaseAssets
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/65bae07da92959c5ce02fd9dacabf62f/transformed/storage-kt-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/069a06f6380b7795404cab0a0acfeb9d/transformed/multiplatform-settings-coroutines-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/956cbf0f31c4fdde90d08dc7b1a234c5/transformed/multiplatform-settings-no-arg-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/443573f71461c0fcc8b6a49f9588f4b8/transformed/kermit-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/b4b2bd285925112a9402983f8e80327a/transformed/postgrest-kt-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/39b0b945bbd81dde27f955cadcda7e1a/transformed/multiplatform-settings-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/d10fec687f82aada5e38fe20c63832c5/transformed/supabase-kt-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/c8a28539b2fda2f4fbcca00ad22118e1/transformed/kermit-core-release because:
+  Caching not enabled.
+Caching disabled for AarTransform: /opt/gradle/.gradle/caches/9.3.1/transforms/92d7ddc56549e215ec48e172ea6c255f/transformed/auth-kt-release because:
+  Caching not enabled.
+Caching disabled for task ':app:mergeReleaseAssets' because:
+  Simple merging task
+Task ':app:mergeReleaseAssets' is not up-to-date because:
+  No history is available.
+The input changes require a full rebuild for incremental task ':app:mergeReleaseAssets'.
+Resolve mutations for :app:compressReleaseAssets (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:compressReleaseAssets (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:mergeExtDexRelease
+Deleting stale output file: /app/applet/app/build/intermediates/external_libs_dex/release/mergeExtDexRelease
+Build cache key for task ':app:mergeExtDexRelease' is f70144cfe39e5247497fcb9e8e0fab6d
+Task ':app:mergeExtDexRelease' is not up-to-date because:
+  No history is available.
+The input changes require a full rebuild for incremental task ':app:mergeExtDexRelease'.
+Merging to '/app/applet/app/build/intermediates/external_libs_dex/release/mergeExtDexRelease' with D8 from all or a subset of dex files in /opt/gradle/.gradle/caches/9.3.1/transforms/9a34df45b2a9fd38d130aeaa47c58de4/transformed/navigation-common-2.8.9-runtime/navigation-common-2.8.9-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/4889bf6e1b9aedfdbb4b0584f134e5a8/transformed/navigation-runtime-2.8.9-runtime/navigation-runtime-2.8.9-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/d69731c0a800cce88c513ee8b16d4932/transformed/navigation-compose-2.8.9-runtime/navigation-compose-2.8.9-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/99f3378b74431382a7b0d1ff7a1c7ebf/transformed/activity-1.10.1-runtime/activity-1.10.1-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/adfa31f096d02bec452bd85d52097a50/transformed/material3-release-runtime/material3-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/09ed702b50b88582934e55462898a160/transformed/customview-poolingcontainer-1.0.0-runtime/customview-poolingcontainer-1.0.0-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/3380ac013c68417123e66fd192059f8f/transformed/core-ktx-1.18.0-runtime/core-ktx-1.18.0-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/c8b2f605e5c487c297ea297c59a9ab85/transformed/postgrest-kt-release-runtime/postgrest-kt-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/1d0be8888b47472b98927c69e744c404/transformed/storage-kt-release-runtime/storage-kt-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/49c95e4746281ddd8a717edf77a7feed/transformed/auth-kt-release-runtime/auth-kt-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/682da9b6a784f5c7401b74dd9dbcec49/transformed/browser-1.8.0-runtime/browser-1.8.0-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/45e678d635d9ff5709be5e4dfd286d50/transformed/material-ripple-release-runtime/material-ripple-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/69b520b4e2da1420d55d9387520cbc79/transformed/foundation-release-runtime/foundation-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/5ee7a2e53b044f9988a7f3ca1f00f698/transformed/animation-core-release-runtime/animation-core-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/ee4a430cd3e4350fc5bfe364857d8e02/transformed/animation-release-runtime/animation-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/447475b0fbf1330f1132d16e0e93df69/transformed/foundation-layout-release-runtime/foundation-layout-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/c871daf67ffae08368ed74949c5eb056/transformed/autofill-1.0.0-runtime/autofill-1.0.0-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/b563e2468d701ff0faf7ad63095c3c90/transformed/ui-geometry-release-runtime/ui-geometry-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/7d63c5c82778fd2e1ed3c2a10e91839f/transformed/ui-tooling-preview-release-runtime/ui-tooling-preview-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/6b508a104e0d841cfd9d08746066900e/transformed/ui-util-release-runtime/ui-util-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/5e56d70c126c61ebec18277ae245ae62/transformed/ui-unit-release-runtime/ui-unit-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/b5550f66e5b2a7d6a33828b71b492923/transformed/ui-text-release-runtime/ui-text-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/14ce71c6daeda599891ee6c585fe0a6d/transformed/ui-graphics-release-runtime/ui-graphics-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/b8b2223f8ecd2f3358ea9e76ba4ab9b3/transformed/graphics-path-1.0.1-runtime/graphics-path-1.0.1-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/a997a545040ee5445ffae37111333f25/transformed/emoji2-1.3.0-runtime/emoji2-1.3.0-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/d1506c9c2084aab40beb04d08af24fc5/transformed/core-1.18.0-runtime/core-1.18.0-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/35debda9ea3db66f224068167649e9b7/transformed/savedstate-ktx-1.2.1-runtime/savedstate-ktx-1.2.1-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/e04108519182ef0ab3246d6ab99d19e3/transformed/savedstate-1.2.1-runtime/savedstate-1.2.1-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/2684296c6777f8f7ffd77cd4c941b645/transformed/supabase-kt-release-runtime/supabase-kt-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/210386f0096e368ef977ccee1451ac06/transformed/lifecycle-process-2.8.7-runtime/lifecycle-process-2.8.7-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/48cc5ae955fa4395622738b3b423da63/transformed/lifecycle-livedata-core-2.8.7-runtime/lifecycle-livedata-core-2.8.7-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/c3e0425f91b9dca01451cd153773d9bb/transformed/lifecycle-viewmodel-release-runtime/lifecycle-viewmodel-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/dd49b08342accda10fd920c2add80944/transformed/lifecycle-common-jvm-2.8.7/lifecycle-common-jvm-2.8.7_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/6106392e8b4c5570c236bc73bd9bdf6a/transformed/lifecycle-runtime-release-runtime/lifecycle-runtime-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/cd3757141cc9e055215308b79fb23cfe/transformed/lifecycle-viewmodel-savedstate-2.8.7-runtime/lifecycle-viewmodel-savedstate-2.8.7-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/b72cf721b9cb3f5a3997896478667aa1/transformed/lifecycle-runtime-compose-release-runtime/lifecycle-runtime-compose-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/defe3dc2fd5997caf8455d302e25c8cb/transformed/lifecycle-viewmodel-compose-release-runtime/lifecycle-viewmodel-compose-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/f1415e01edc8dc352406aec52c6635b2/transformed/material-icons-extended-release-runtime/material-icons-extended-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/882b147404e389ea786380c589f9e873/transformed/material-icons-core-release-runtime/material-icons-core-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/6a930bcbb5fb5665bb91fd5a637c394d/transformed/ui-release-runtime/ui-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/a8822aa1c8242b226c68346f477a7ec0/transformed/activity-compose-1.10.1-runtime/activity-compose-1.10.1-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/585e82cb5106c713b718a7776f61ade1/transformed/ktor-client-android-jvm-3.0.3/ktor-client-android-jvm-3.0.3_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/b493ff36c64cf84f58d5c050d04c6eac/transformed/runtime-saveable-release-runtime/runtime-saveable-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/ef20feca339aca1852b6ee309e1e82da/transformed/runtime-release-runtime/runtime-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/c4e73ac2e1fd1509c5e39516eb830ddf/transformed/multiplatform-settings-coroutines-release-runtime/multiplatform-settings-coroutines-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/e5e2d127e4ba322622dd8949ffb1368c/transformed/ktor-client-content-negotiation-jvm-3.1.1/ktor-client-content-negotiation-jvm-3.1.1_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/831d1c727fca6f7b67ba12119d4b03ea/transformed/ktor-client-core-jvm-3.1.1/ktor-client-core-jvm-3.1.1_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/23cac8f6556ac28f027bad576896d857/transformed/ktor-serialization-kotlinx-json-jvm-3.1.1/ktor-serialization-kotlinx-json-jvm-3.1.1_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/9310bd1f04a775bcb791f795abb9c79b/transformed/kotlinx-coroutines-slf4j-1.10.2/kotlinx-coroutines-slf4j-1.10.2_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/db628049a3cf52e96f1e56350c13fd76/transformed/ktor-http-cio-jvm-3.1.1/ktor-http-cio-jvm-3.1.1_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/bb05b4080a791bf8f96dcb14fe81bef6/transformed/ktor-events-jvm-3.1.1/ktor-events-jvm-3.1.1_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/b2c939c07187f37a2878464e7ea79524/transformed/ktor-websocket-serialization-jvm-3.1.1/ktor-websocket-serialization-jvm-3.1.1_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/6a96ee1d0916bf6727a8d8ad8cf5fb81/transformed/ktor-sse-jvm-3.1.1/ktor-sse-jvm-3.1.1_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/c6491843e487183ba04e0509561fcdbd/transformed/ktor-serialization-kotlinx-jvm-3.1.1/ktor-serialization-kotlinx-jvm-3.1.1_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/13bef6fbc553b0587b87c4cd1e9cf491/transformed/ktor-serialization-jvm-3.1.1/ktor-serialization-jvm-3.1.1_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/afdb28cf61b9f980508f615219b66355/transformed/ktor-websockets-jvm-3.1.1/ktor-websockets-jvm-3.1.1_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/f4b713a75e5a936304d44d3f7a23186b/transformed/ktor-http-jvm-3.1.1/ktor-http-jvm-3.1.1_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/193d4d3def61a000f3ec1b5f034886c5/transformed/ktor-network-jvm-3.1.1/ktor-network-jvm-3.1.1_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/658d834ad0f82c84eb3786adacb54c86/transformed/ktor-utils-jvm-3.1.1/ktor-utils-jvm-3.1.1_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/7562f3635c1a904381d78f88b1e59bb9/transformed/ktor-io-jvm-3.1.1/ktor-io-jvm-3.1.1_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/da5da90ad65e32adbc91d23c59933fe5/transformed/kotlinx-coroutines-core-jvm-1.10.2/kotlinx-coroutines-core-jvm-1.10.2_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/fd1b0b1828b31e05be55b113f8b77482/transformed/kotlinx-coroutines-android-1.10.2/kotlinx-coroutines-android-1.10.2_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/f0bfe47dbad8b904b7f95a1ec8fedea5/transformed/kotlin-reflect-2.1.10/kotlin-reflect-2.1.10_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/43d641f582f4c9fc1dc4879487a10976/transformed/multiplatform-settings-no-arg-release-runtime/multiplatform-settings-no-arg-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/4d9c951bf09a2daa29176021c82142e6/transformed/profileinstaller-1.4.0-runtime/profileinstaller-1.4.0-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/2fdd57612de220a7b205dda294275003/transformed/startup-runtime-1.2.0-runtime/startup-runtime-1.2.0-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/44dc6ba4ec6df1239c5ea9bbaa4c6734/transformed/interpolator-1.0.0-runtime/interpolator-1.0.0-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/3ee1088faf8401ba63eed5eb5386d61a/transformed/tracing-1.2.0-runtime/tracing-1.2.0-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/24674478017070d0110929943bc02552/transformed/versionedparcelable-1.1.1-runtime/versionedparcelable-1.1.1-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/6c5f02330dac08a49c4c18ff0503f0b9/transformed/concurrent-futures-1.1.0/concurrent-futures-1.1.0_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/a1d19c3989347ef3c4a6375a0534db04/transformed/core-runtime-2.2.0-runtime/core-runtime-2.2.0-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/4957085cdbe64bea9c3645e36eae897d/transformed/core-common-2.2.0/core-common-2.2.0_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/df19037f9cfc73364421fa1fc7bf3d31/transformed/collection-jvm-1.4.4/collection-jvm-1.4.4_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/7cb3e25c673daf1ac7964b3dac249bab/transformed/annotation-jvm-1.8.1/annotation-jvm-1.8.1_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/64ae9f2c11639e7de3357fddae47c6a5/transformed/annotation-experimental-1.4.1-runtime/annotation-experimental-1.4.1-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/e9cf6e566389a2c81dfc00b7f81a6cf2/transformed/core-viewtree-1.0.0-runtime/core-viewtree-1.0.0-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/e010a6a2381152f1942108c4e89fa9c5/transformed/okio-jvm-3.10.2/okio-jvm-3.10.2_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/320326506227483a2a24b1e9c3d70687/transformed/crypto-rand-jvm-0.4.0/crypto-rand-jvm-0.4.0_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/0270988a3143569e2b9d8dbc038c6a40/transformed/kotlinx-datetime-jvm-0.6.2/kotlinx-datetime-jvm-0.6.2_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/4d9d275a1199bf8438b1824e0f75941b/transformed/kermit-release-runtime/kermit-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/867643bb9fd0b659e72981d870b2e34b/transformed/atomicfu-jvm-0.27.0/atomicfu-jvm-0.27.0_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/4b0d022f3eac99eebb15155668c89f24/transformed/multiplatform-settings-release-runtime/multiplatform-settings-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/7032ca1745aadccfcf5636b0693f28e0/transformed/error-jvm-0.2.0/error-jvm-0.2.0_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/ec0f8728cb105ef95ada612cc1d2625a/transformed/kermit-core-release-runtime/kermit-core-release-runtime_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/dea6ecd2cd4abb09997b3fd4ac2b3707/transformed/kotlinx-serialization-json-jvm-1.8.0/kotlinx-serialization-json-jvm-1.8.0_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/cf793bc55832e4d5f730efee58f327f6/transformed/kotlinx-serialization-core-jvm-1.8.0/kotlinx-serialization-core-jvm-1.8.0_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/b341be432f596e4fc613bbe00a640bb9/transformed/kotlinx-serialization-json-io-jvm-1.8.0/kotlinx-serialization-json-io-jvm-1.8.0_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/a6250731ac2181077315dbdcc27f4a17/transformed/kotlinx-io-core-jvm-0.6.0/kotlinx-io-core-jvm-0.6.0_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/f2a1adfb5680f803ab4ec42e8b123938/transformed/kotlinx-io-bytestring-jvm-0.6.0/kotlinx-io-bytestring-jvm-0.6.0_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/401bd8b46edb2b54b407b3b6a125a3cf/transformed/kotlin-stdlib-2.2.10/kotlin-stdlib-2.2.10_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/8acb02d76851071e746fb9532c7f26aa/transformed/annotations-23.0.0/annotations-23.0.0_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/53725100b02ad2f73c61da77543b793e/transformed/slf4j-api-2.0.16/slf4j-api-2.0.16_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/367fd4e7a2409cd89e3db305253fa4b4/transformed/listenablefuture-1.0/listenablefuture-1.0_dex, /opt/gradle/.gradle/caches/9.3.1/transforms/ebdabd501915a8c732d7469bced100df/transformed/jspecify-1.0.0/jspecify-1.0.0_dex, and from all global synthetics files in 
+
+> Task :app:compressReleaseAssets
+Build cache key for task ':app:compressReleaseAssets' is f316198890ae6a4c74be01503272a7c5
+Task ':app:compressReleaseAssets' is not up-to-date because:
+  No history is available.
+The input changes require a full rebuild for incremental task ':app:compressReleaseAssets'.
+Stored cache entry for task ':app:compressReleaseAssets' with cache key f316198890ae6a4c74be01503272a7c5
+Resolve mutations for :app:extractReleaseVersionControlInfo (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:extractReleaseVersionControlInfo (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:extractReleaseVersionControlInfo
+Caching disabled for task ':app:extractReleaseVersionControlInfo' because:
+  Caching has been disabled for the task
+Task ':app:extractReleaseVersionControlInfo' is not up-to-date because:
+  No history is available.
+Resolve mutations for :app:extractProguardFiles (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:extractProguardFiles (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:extractProguardFiles
+Caching disabled for task ':app:extractProguardFiles' because:
+  Fast task
+Task ':app:extractProguardFiles' is not up-to-date because:
+  Class path of task ':app:extractProguardFiles' has changed from d9b178f81fb2f74a1b67b04c0892d029 to fee5cfb5d7bb88428a37d3b3e9791114.
+Resolve mutations for :app:optimizeReleaseResources (Thread[#53,Execution worker Thread 3,5,main]) started.
+:app:optimizeReleaseResources (Thread[#53,Execution worker Thread 3,5,main]) started.
+
+> Task :app:optimizeReleaseResources
+Build cache key for task ':app:optimizeReleaseResources' is 051344561a5bd4d4e29667b4468c486a
+Task ':app:optimizeReleaseResources' is not up-to-date because:
+  No history is available.
+
+> Task :app:compileReleaseKotlin FAILED
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:108:43 Syntax error: Unexpected tokens (use ';' to separate expressions on the same line).
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:110:9 Syntax error: Expecting member declaration.
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:110:25 Syntax error: Expecting member declaration.
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:110:26 Syntax error: Expecting member declaration.
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:111:9 Syntax error: Expecting member declaration.
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:111:20 Syntax error: Expecting member declaration.
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:111:20 Functions which invoke @Composable functions must be marked with the @Composable annotation
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:111:20 Function declaration must have a name.
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:112:13 @Composable invocations can only happen from the context of a @Composable function
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:125:73 Unresolved reference 'auth'.
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:167:1 Syntax error: Expecting a top level declaration.
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:682:62 Unresolved reference 'auth'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:116:16 Unresolved reference 'collection'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:117:18 Unresolved reference 'addOnSuccessListener'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:117:41 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:118:54 Unresolved reference 'exists'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:119:49 Unresolved reference 'getString'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:120:49 Unresolved reference 'getString'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:121:51 Unresolved reference 'getLong'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:122:46 Unresolved reference 'getDouble'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:123:44 Unresolved reference 'getDouble'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:124:52 Unresolved reference 'getString'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:129:58 Unresolved reference 'reference'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:367:46 Unresolved reference 'reference'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:382:36 Unresolved reference 'collection'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:387:49 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:437:28 Unresolved reference 'collection'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:441:33 Unresolved reference 'reference'.
+Finished executing kotlin compiler using DAEMON strategy
+
+> Task :app:compileDebugKotlin
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:108:43 Syntax error: Unexpected tokens (use ';' to separate expressions on the same line).
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:110:9 Syntax error: Expecting member declaration.
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:110:25 Syntax error: Expecting member declaration.
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:110:26 Syntax error: Expecting member declaration.
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:111:9 Syntax error: Expecting member declaration.
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:111:20 Syntax error: Expecting member declaration.
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:111:20 Functions which invoke @Composable functions must be marked with the @Composable annotation
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:111:20 Function declaration must have a name.
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:112:13 @Composable invocations can only happen from the context of a @Composable function
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:125:73 Unresolved reference 'auth'.
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:167:1 Syntax error: Expecting a top level declaration.
+e: file:///app/applet/app/src/main/java/com/example/MainActivity.kt:682:62 Unresolved reference 'auth'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:116:16 Unresolved reference 'collection'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:117:18 Unresolved reference 'addOnSuccessListener'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:117:41 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:118:54 Unresolved reference 'exists'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:119:49 Unresolved reference 'getString'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:120:49 Unresolved reference 'getString'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:121:51 Unresolved reference 'getLong'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:122:46 Unresolved reference 'getDouble'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:123:44 Unresolved reference 'getDouble'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:124:52 Unresolved reference 'getString'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:129:58 Unresolved reference 'reference'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:367:46 Unresolved reference 'reference'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:382:36 Unresolved reference 'collection'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:387:49 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:437:28 Unresolved reference 'collection'.
+e: file:///app/applet/app/src/main/java/com/example/NotificationSetterViewModel.kt:441:33 Unresolved reference 'reference'.
+Finished executing kotlin compiler using DAEMON strategy
+
+> Task :app:compileDebugKotlin FAILED
+
+> Task :app:optimizeReleaseResources
+Stored cache entry for task ':app:optimizeReleaseResources' with cache key 051344561a5bd4d4e29667b4468c486a
+
+> Task :app:mergeExtDexRelease
+Invalidating in-memory cache of /app/applet/.gradle/9.3.1/fileHashes/fileHashes.bin
+Invalidating in-memory cache of /app/applet/.gradle/9.3.1/fileHashes/resourceHashesCache.bin
+Invalidating in-memory cache of /opt/gradle/.gradle/caches/journal-1/file-access.bin
+Stored cache entry for task ':app:mergeExtDexRelease' with cache key f70144cfe39e5247497fcb9e8e0fab6d
+Invalidating in-memory cache of /app/applet/.gradle/9.3.1/executionHistory/executionHistory.bin
+Invalidating in-memory cache of /app/applet/.gradle/buildOutputCleanup/outputFiles.bin
+Build a004b1cc-d7ad-4978-b343-479055f26670 is closed
+
+FAILURE: Build completed with 2 failures.
+
+1: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+==============================================================================
+
+2: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':app:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+==============================================================================
+
+BUILD FAILED in 43s
+62 actionable tasks: 9 executed, 53 up-to-date
+Configuration cache entry reused.
