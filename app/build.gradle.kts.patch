@@ -1,0 +1,8 @@
+--- app/build.gradle.kts
++++ app/build.gradle.kts
+@@ -48,6 +48,7 @@
+   implementation(libs.androidx.ui.tooling.preview)
+   implementation(libs.androidx.material3)
++  implementation("com.arthenica:ffmpeg-kit-full:6.0-2")
+ 
+   testImplementation(libs.junit)
