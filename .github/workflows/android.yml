@@ -26,36 +26,25 @@ jobs:
         with:
           gradle-version: '9.3.1'
 
-      - name: Prepare environment config
-        # Write the real Supabase credentials directly into .env so the
-        # APK gets them baked into BuildConfig at build time.
+      - name: Set Supabase environment variables
+        # Set env vars that app/build.gradle.kts reads via System.getenv()
+        # to populate BuildConfig.SUPABASE_URL / BuildConfig.SUPABASE_KEY.
         #
-        # SECURITY NOTE: The SUPABASE_KEY below is the "anon" / "public"
-        # key, NOT the "service_role" key. The anon key is designed to be
-        # shipped in client apps (it's embedded in every APK we publish,
-        # so anyone can extract it anyway). Row-Level Security policies
-        # in supabase_setup.sql protect the data -- each authenticated
-        # user can only read/write their own row. The service_role key
-        # (which bypasses RLS) must NEVER be put here.
+        # We no longer use the secrets-gradle-plugin (it was corrupting the
+        # URL via java.util.Properties ISO-8859-1 encoding -- turning 'u'
+        # into 'ú'). The build.gradle.kts file has hardcoded fallbacks for
+        # these env vars, so technically this step is redundant on CI --
+        # but setting them explicitly makes the build reproducible and
+        # documents the intent.
+        #
+        # SECURITY: SUPABASE_KEY is the anon public key, NOT service_role.
+        # The anon key ships in every APK and is safe to expose. RLS
+        # policies (supabase_setup.sql) protect the data.
         run: |
-          # Hardcoded, verified-working credentials for this Supabase project.
-          # We intentionally do NOT read from GitHub Secrets here because the
-          # secrets are easy to mis-type (e.g. appending /auth/v1 to the URL,
-          # which makes the Supabase Kotlin SDK throw
-          # "The Supabase URL should not contain (auth/v1)"). The anon key
-          # is safe to hardcode -- it's in every APK we ship anyway.
-          URL="https://hhwwevlstzuvjpewkaiz.supabase.co"
-          KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhod3dldmxzdHp1dmpwZXdrYWl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2MDI4OTQsImV4cCI6MjA5OTE3ODg5NH0.Jpjy0gN_PiKGFmuJUbMBTMrYGECStXoKKz4YmVmLib0"
-          # IMPORTANT: do NOT put comments or blank lines in the .env file.
-          # The secrets-gradle-plugin parses .env as a Java properties file
-          # and some versions choke on inline comments or extra whitespace.
-          # Only KEY=VALUE lines, nothing else.
-          printf 'GEMINI_API_KEY=placeholder_api_key\nSUPABASE_URL=%s\nSUPABASE_KEY=%s\n' "$URL" "$KEY" > .env
-          echo "Wrote .env with SUPABASE_URL=$URL"
-          # Sanity-check the file (key redacted) so we can see exactly
-          # what got written in the CI logs.
-          echo "--- .env contents (key redacted) ---"
-          sed 's/\(SUPABASE_KEY=\).*/\1<redacted>/' .env
+          echo "SUPABASE_URL=https://hhwwevlstzuvjpewkaiz.supabase.co" >> "$GITHUB_ENV"
+          echo "SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhod3dldmxzdHp1dmpwZXdrYWl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2MDI4OTQsImV4cCI6MjA5OTE3ODg5NH0.Jpjy0gN_PiKGFmuJUbMBTMrYGECStXoKKz4YmVmLib0" >> "$GITHUB_ENV"
+          echo "GEMINI_API_KEY=placeholder_api_key" >> "$GITHUB_ENV"
+          echo "Set SUPABASE_URL=https://hhwwevlstzuvjpewkaiz.supabase.co"
 
       - name: Decode Debug Keystore
         run: |

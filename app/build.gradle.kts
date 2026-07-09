@@ -5,8 +5,7 @@ plugins {
   alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.roborazzi)
-  alias(libs.plugins.secrets)
-  
+
 }
 
 android {
@@ -21,6 +20,39 @@ android {
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+    // ----------------------------------------------------------------
+    // Supabase credentials -- injected as BuildConfig fields.
+    //
+    // We deliberately do NOT use the secrets-gradle-plugin here.
+    // That plugin parses .env using java.util.Properties.load(), which
+    // uses ISO-8859-1 and has been observed to corrupt URLs (e.g.
+    // turning a regular 'u' into 'ú' = byte 0xFA), producing
+    // "HTTP request to https://hhwevlstzúvjpewkaiz.supabase.co..."
+    // errors at runtime.
+    //
+    // Instead we read directly from environment variables (set by the
+    // GitHub Actions workflow) or fall back to hardcoded defaults that
+    // are verified to work. The SUPABASE_KEY is the anon public key --
+    // it ships inside every APK we publish, so anyone can extract it
+    // anyway. RLS policies (supabase_setup.sql) protect the data.
+    // The service_role key must NEVER be put here.
+    // ----------------------------------------------------------------
+    buildConfigField(
+      "String",
+      "SUPABASE_URL",
+      "\"" + (System.getenv("SUPABASE_URL") ?: "https://hhwwevlstzuvjpewkaiz.supabase.co") + "\""
+    )
+    buildConfigField(
+      "String",
+      "SUPABASE_KEY",
+      "\"" + (System.getenv("SUPABASE_KEY") ?: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhod3dldmxzdHp1dmpwZXdrYWl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2MDI4OTQsImV4cCI6MjA5OTE3ODg5NH0.Jpjy0gN_PiKGFmuJUbMBTMrYGECStXoKKz4YmVmLib0") + "\""
+    )
+    buildConfigField(
+      "String",
+      "GEMINI_API_KEY",
+      "\"" + (System.getenv("GEMINI_API_KEY") ?: "placeholder_api_key") + "\""
+    )
   }
 
   signingConfigs {
@@ -61,12 +93,11 @@ android {
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 
-// Configure the Secrets Gradle Plugin to use .env and .env.example files
-// to match the convention used in Web projects.
-secrets {
-  propertiesFileName = ".env"
-  defaultPropertiesFileName = ".env.example"
-}
+// NOTE: The secrets-gradle-plugin has been removed entirely.
+// BuildConfig fields are now declared explicitly in defaultConfig
+// above, reading from environment variables with hardcoded fallbacks.
+// This avoids the Properties.load() ISO-8859-1 encoding bug that was
+// corrupting the Supabase URL (u -> ú).
 
 
 // Some unused dependencies are commented out below instead of being removed.
