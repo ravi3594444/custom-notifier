@@ -27,27 +27,34 @@ jobs:
           gradle-version: '9.3.1'
 
       - name: Prepare environment config
-        # Build a real .env from GitHub repo secrets if they exist, so the
-        # APK gets the real Supabase URL/key baked into BuildConfig.
-        # If the secrets aren't set (e.g. on a fork), we fall back to
-        # .env.example and the app will hit placeholder.supabase.co --
-        # sign-in will fail with a clear error, but the build still works.
+        # Write the real Supabase credentials directly into .env so the
+        # APK gets them baked into BuildConfig at build time.
+        #
+        # SECURITY NOTE: The SUPABASE_KEY below is the "anon" / "public"
+        # key, NOT the "service_role" key. The anon key is designed to be
+        # shipped in client apps (it's embedded in every APK we publish,
+        # so anyone can extract it anyway). Row-Level Security policies
+        # in supabase_setup.sql protect the data -- each authenticated
+        # user can only read/write their own row. The service_role key
+        # (which bypasses RLS) must NEVER be put here.
+        #
+        # If you fork this repo, replace these with your own Supabase
+        # project's anon key + URL, or set SUPABASE_URL / SUPABASE_KEY
+        # in GitHub Secrets and the block below will use those instead.
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          FALLBACK_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          FALLBACK_SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_KEY" ]; then
-            echo "Using real Supabase credentials from GitHub Secrets."
-            {
-              echo "GEMINI_API_KEY=placeholder_api_key"
-              echo "SUPABASE_URL=$SUPABASE_URL"
-              echo "SUPABASE_KEY=$SUPABASE_KEY"
-            } > .env
-          else
-            echo "WARNING: SUPABASE_URL / SUPABASE_KEY secrets are not set."
-            echo "Falling back to .env.example -- sign-in will not work."
-            cp .env.example .env
-          fi
+          # Prefer GitHub Secrets if they exist (lets forks override),
+          # otherwise use the hardcoded defaults below.
+          URL="${FALLBACK_SUPABASE_URL:-https://hhwwevlstzuvjpewkaiz.supabase.co}"
+          KEY="${FALLBACK_SUPABASE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhod3dldmxzdHp1dmpwZXdrYWl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2MDI4OTQsImV4cCI6MjA5OTE3ODg5NH0.Jpjy0gN_PiKGFmuJUbMBTMrYGECStXoKKz4YmVmLib0}"
+          {
+            echo "GEMINI_API_KEY=placeholder_api_key"
+            echo "SUPABASE_URL=$URL"
+            echo "SUPABASE_KEY=$KEY"
+          } > .env
+          echo "Wrote .env with SUPABASE_URL=$URL"
 
       - name: Decode Debug Keystore
         run: |
