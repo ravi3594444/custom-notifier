@@ -38,56 +38,235 @@ object RingtoneUtils {
 
     suspend fun extractAudioFromVideo(context: Context, videoUri: Uri, outputFile: File): Boolean = withContext(Dispatchers.IO) {
         val extractor = MediaExtractor()
-        var muxer: MediaMuxer? = null
-        var audioTrackIndex = -1
-        var muxerAudioTrackIndex = -1
+        var directMuxer: MediaMuxer? = null
+        var chosenTrackIndex = -1
+        var chosenFormat: MediaFormat? = null
+        var isDirectMuxPossible = false
+
         try {
             extractor.setDataSource(context, videoUri, null)
             for (i in 0 until extractor.trackCount) {
                 val format = extractor.getTrackFormat(i)
                 val mime = format.getString(MediaFormat.KEY_MIME)
                 if (mime?.startsWith("audio/") == true) {
-                    // Try to add track, catch any unsupported format exceptions from MediaMuxer
-                    try {
-                        extractor.selectTrack(i)
-                        audioTrackIndex = i
-                        muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-                        muxerAudioTrackIndex = muxer.addTrack(format)
-                        break
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        muxer?.release()
-                        muxer = null
-                        audioTrackIndex = -1
-                        continue
+                    chosenTrackIndex = i
+                    chosenFormat = format
+                    // Check if it's a format natively muxable to MPEG_4 without transcoding
+                    if (mime == "audio/mp4a-latm" || mime == "audio/3gpp" || mime == "audio/amr-wb") {
+                        try {
+                            extractor.selectTrack(i)
+                            directMuxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+                            val muxerTrackIndex = directMuxer.addTrack(format)
+                            directMuxer.start()
+
+                            val buffer = ByteBuffer.allocate(1024 * 1024)
+                            val bufferInfo = MediaCodec.BufferInfo()
+                            while (true) {
+                                bufferInfo.size = extractor.readSampleData(buffer, 0)
+                                if (bufferInfo.size < 0) break
+                                bufferInfo.presentationTimeUs = extractor.sampleTime
+                                bufferInfo.offset = 0
+                                val sampleFlags = extractor.sampleFlags
+                                bufferInfo.flags = if ((sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC) != 0) {
+                                    MediaCodec.BUFFER_FLAG_KEY_FRAME
+                                } else {
+                                    0
+                                }
+                                directMuxer.writeSampleData(muxerTrackIndex, buffer, bufferInfo)
+                                extractor.advance()
+                            }
+                            isDirectMuxPossible = true
+                            break
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            try { directMuxer?.stop() } catch (ex: Exception) {}
+                            try { directMuxer?.release() } catch (ex: Exception) {}
+                            directMuxer = null
+                            extractor.unselectTrack(i)
+                        }
                     }
                 }
             }
-            if (audioTrackIndex == -1 || muxer == null) return@withContext false
-            muxer.start()
-            val buffer = ByteBuffer.allocate(1024 * 1024)
+
+            if (isDirectMuxPossible) {
+                return@withContext true
+            }
+
+            // Direct muxing was not possible or failed. If we found any audio track, transcode it to AAC!
+            if (chosenTrackIndex != -1 && chosenFormat != null) {
+                return@withContext transcodeAudioTrackToAac(context, videoUri, outputFile, chosenTrackIndex, chosenFormat)
+            }
+
+            return@withContext false
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return@withContext false
+        } finally {
+            try { extractor.release() } catch (e: Exception) {}
+            try { directMuxer?.stop(); directMuxer?.release() } catch (e: Exception) {}
+        }
+    }
+
+    private suspend fun transcodeAudioTrackToAac(
+        context: Context,
+        inputUri: Uri,
+        outputFile: File,
+        trackIndex: Int,
+        inputFormat: MediaFormat
+    ): Boolean = withContext(Dispatchers.IO) {
+        val tempPcmFile = File(context.cacheDir, "temp_transcode_${System.currentTimeMillis()}.pcm")
+        var decoder: MediaCodec? = null
+        val extractor = MediaExtractor()
+        var pcmOutputStream: java.io.FileOutputStream? = null
+
+        var sampleRate = 44100
+        var channelCount = 1
+
+        try {
+            extractor.setDataSource(context, inputUri, null)
+            extractor.selectTrack(trackIndex)
+
+            val mime = inputFormat.getString(MediaFormat.KEY_MIME) ?: return@withContext false
+            if (inputFormat.containsKey(MediaFormat.KEY_SAMPLE_RATE)) {
+                sampleRate = inputFormat.getInteger(MediaFormat.KEY_SAMPLE_RATE)
+            }
+            if (inputFormat.containsKey(MediaFormat.KEY_CHANNEL_COUNT)) {
+                channelCount = inputFormat.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
+            }
+
+            decoder = MediaCodec.createDecoderByType(mime)
+            decoder.configure(inputFormat, null, null, 0)
+            decoder.start()
+
+            pcmOutputStream = java.io.FileOutputStream(tempPcmFile)
+
+            val timeoutUs = 5000L
             val bufferInfo = MediaCodec.BufferInfo()
-            while (true) {
-                bufferInfo.size = extractor.readSampleData(buffer, 0)
-                if (bufferInfo.size < 0) break
-                bufferInfo.presentationTimeUs = extractor.sampleTime
-                bufferInfo.offset = 0
-                val sampleFlags = extractor.sampleFlags
-                bufferInfo.flags = if ((sampleFlags and MediaExtractor.SAMPLE_FLAG_SYNC) != 0) {
-                    MediaCodec.BUFFER_FLAG_KEY_FRAME
-                } else {
-                    0
+            var isExtractorEOS = false
+            var isDecoderEOS = false
+
+            while (!isDecoderEOS) {
+                if (!isExtractorEOS) {
+                    val inIndex = decoder.dequeueInputBuffer(timeoutUs)
+                    if (inIndex >= 0) {
+                        val buffer = decoder.getInputBuffer(inIndex)
+                        if (buffer != null) {
+                            buffer.clear()
+                            val sampleSize = extractor.readSampleData(buffer, 0)
+                            if (sampleSize < 0) {
+                                decoder.queueInputBuffer(inIndex, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                                isExtractorEOS = true
+                            } else {
+                                decoder.queueInputBuffer(inIndex, 0, sampleSize, extractor.sampleTime, 0)
+                                extractor.advance()
+                            }
+                        }
+                    }
                 }
-                muxer.writeSampleData(muxerAudioTrackIndex, buffer, bufferInfo)
-                extractor.advance()
+
+                val outIndex = decoder.dequeueOutputBuffer(bufferInfo, timeoutUs)
+                if (outIndex >= 0) {
+                    val outBuffer = decoder.getOutputBuffer(outIndex)
+                    if (outBuffer != null && bufferInfo.size > 0) {
+                        val chunk = ByteArray(bufferInfo.size)
+                        outBuffer.position(bufferInfo.offset)
+                        outBuffer.get(chunk)
+                        pcmOutputStream.write(chunk)
+                    }
+                    decoder.releaseOutputBuffer(outIndex, false)
+                    if ((bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                        isDecoderEOS = true
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return@withContext false
+        } finally {
+            try { decoder?.stop() } catch (e: Exception) {}
+            try { decoder?.release() } catch (e: Exception) {}
+            try { extractor.release() } catch (e: Exception) {}
+            try { pcmOutputStream?.close() } catch (e: Exception) {}
+        }
+
+        // Now encode the PCM file to AAC
+        var encoder: MediaCodec? = null
+        var muxer: MediaMuxer? = null
+        var pcmInputStream: java.io.FileInputStream? = null
+        var isMuxerStarted = false
+
+        try {
+            val encoderFormat = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, sampleRate, channelCount)
+            encoderFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, android.media.MediaCodecInfo.CodecProfileLevel.AACObjectLC)
+            encoderFormat.setInteger(MediaFormat.KEY_BIT_RATE, 128000)
+            encoderFormat.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 1024 * 1024)
+
+            encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC)
+            encoder.configure(encoderFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+            encoder.start()
+
+            muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+            var muxerTrackIndex = -1
+
+            pcmInputStream = java.io.FileInputStream(tempPcmFile)
+            val pcmChannel = pcmInputStream.channel
+            val bufferInfo = MediaCodec.BufferInfo()
+            val timeoutUs = 5000L
+            var isInputStreamEOS = false
+            var isEncoderEOS = false
+            var bytesWritten = 0L
+
+            while (!isEncoderEOS) {
+                if (!isInputStreamEOS) {
+                    val inIndex = encoder.dequeueInputBuffer(timeoutUs)
+                    if (inIndex >= 0) {
+                        val buffer = encoder.getInputBuffer(inIndex)
+                        if (buffer != null) {
+                            buffer.clear()
+                            val bytesRead = pcmChannel.read(buffer)
+                            if (bytesRead < 0) {
+                                val presentationTimeUs = bytesWritten * 1000000L / (sampleRate * channelCount * 2)
+                                encoder.queueInputBuffer(inIndex, 0, 0, presentationTimeUs, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                                isInputStreamEOS = true
+                            } else {
+                                val presentationTimeUs = bytesWritten * 1000000L / (sampleRate * channelCount * 2)
+                                encoder.queueInputBuffer(inIndex, 0, bytesRead, presentationTimeUs, 0)
+                                bytesWritten += bytesRead
+                            }
+                        }
+                    }
+                }
+
+                val outIndex = encoder.dequeueOutputBuffer(bufferInfo, timeoutUs)
+                if (outIndex >= 0) {
+                    val outBuffer = encoder.getOutputBuffer(outIndex)
+                    if (outBuffer != null && bufferInfo.size > 0 && isMuxerStarted) {
+                        outBuffer.position(bufferInfo.offset)
+                        outBuffer.limit(bufferInfo.offset + bufferInfo.size)
+                        muxer.writeSampleData(muxerTrackIndex, outBuffer, bufferInfo)
+                    }
+                    encoder.releaseOutputBuffer(outIndex, false)
+                    if ((bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                        isEncoderEOS = true
+                    }
+                } else if (outIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    val newFormat = encoder.outputFormat
+                    muxerTrackIndex = muxer.addTrack(newFormat)
+                    muxer.start()
+                    isMuxerStarted = true
+                }
             }
             return@withContext true
         } catch (e: Exception) {
             e.printStackTrace()
             return@withContext false
         } finally {
-            try { extractor.release() } catch (e: Exception) {}
-            try { muxer?.stop(); muxer?.release() } catch (e: Exception) {}
+            try { encoder?.stop() } catch (e: Exception) {}
+            try { encoder?.release() } catch (e: Exception) {}
+            try { pcmInputStream?.close() } catch (e: Exception) {}
+            try { if (isMuxerStarted) muxer?.stop() } catch (e: Exception) {}
+            try { muxer?.release() } catch (e: Exception) {}
+            try { tempPcmFile.delete() } catch (e: Exception) {}
         }
     }
 
