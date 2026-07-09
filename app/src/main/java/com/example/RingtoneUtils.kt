@@ -360,9 +360,26 @@ object RingtoneUtils {
                     }
                 }
 
-                val msg = if (setAsNotification && setAsRingtone) "Notification & Ringtone sound updated successfully!" 
+                var msg = if (setAsNotification && setAsRingtone) "Notification & Ringtone sound updated successfully!" 
                           else if (setAsNotification) "Notification sound updated successfully!"
                           else "Ringtone updated successfully!"
+                          
+                try {
+                    val am = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+                    when (am.ringerMode) {
+                        android.media.AudioManager.RINGER_MODE_VIBRATE -> msg += "\nNote: Phone is on Vibrate."
+                        android.media.AudioManager.RINGER_MODE_SILENT -> msg += "\nNote: Phone is on Silent."
+                        android.media.AudioManager.RINGER_MODE_NORMAL -> {
+                            val streamType = if (setAsRingtone) android.media.AudioManager.STREAM_RING else android.media.AudioManager.STREAM_NOTIFICATION
+                            val currentVolume = am.getStreamVolume(streamType)
+                            val maxVolume = am.getStreamMaxVolume(streamType)
+                            if (currentVolume < maxVolume / 3) {
+                                msg += "\nWarning: System volume is very low!"
+                            }
+                        }
+                    }
+                } catch (e: Exception) { e.printStackTrace() }
+
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                 }

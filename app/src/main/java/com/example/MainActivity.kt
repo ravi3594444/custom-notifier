@@ -1156,8 +1156,8 @@ fun NotificationSetterScreen(
                     Slider(
                         value = volumeBoost,
                         onValueChange = { viewModel.updateVolumeBoost(it) },
-                        valueRange = 0.5f..2.0f,
-                        steps = 14,
+                        valueRange = 0.5f..10.0f,
+                        steps = 94,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }

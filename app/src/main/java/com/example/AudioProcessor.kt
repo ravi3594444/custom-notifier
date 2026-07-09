@@ -152,7 +152,7 @@ object AudioProcessor {
                 }
             }
 
-            val targetPeak = 32000.0
+            val targetPeak = 32767.0
             val gain = if (maxVal > 0) targetPeak / maxVal else 1.0
             // Cap gain between 0.1 and 10.0 to prevent severe distortion or noise floor explosion
             val cappedGain = gain.coerceIn(0.1, 10.0)

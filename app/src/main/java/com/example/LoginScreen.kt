@@ -91,6 +91,7 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
     val googleSignInLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
+        isLoading = false
         val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
         try {
             val account = task.getResult(ApiException::class.java)
@@ -387,6 +388,7 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
                 OutlinedButton(
                     onClick = {
                         if (!isLoading) {
+                            isLoading = true
                             val signInIntent = googleSignInClient.signInIntent
                             googleSignInLauncher.launch(signInIntent)
                         }
