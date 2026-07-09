@@ -90,13 +90,14 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -438,13 +439,13 @@ fun AudioPlayerCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = formatTime(currentPlaybackPos.toLong()),
+                    text = RingtoneUtils.formatTime(currentPlaybackPos.toLong()),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = formatTime(trimRange.endInclusive.toLong()),
+                    text = RingtoneUtils.formatTime(trimRange.endInclusive.toLong()),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     fontWeight = FontWeight.Medium
@@ -571,177 +572,41 @@ fun ProcessingCard(
 
 
 @Composable
-fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = "") {
+fun NotificationSetterScreen(
+    modifier: Modifier = Modifier,
+    userEmail: String = "",
+    viewModel: NotificationSetterViewModel = viewModel()
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var isProcessing by remember { mutableStateOf(false) }
-    var processingStatus by remember { mutableStateOf("") }
 
-    var selectedMediaUri by remember { mutableStateOf<Uri?>(null) }
-    var selectedFileName by remember { mutableStateOf("") }
-    var selectedFileSize by remember { mutableStateOf("") }
-    var mediaDurationMs by remember { mutableStateOf(0L) }
-    var trimRange by remember { mutableStateOf(0f..100f) }
-    var isPlaying by remember { mutableStateOf(false) }
-    var currentPlaybackPos by remember { mutableStateOf(0f) }
+    val isProcessing by viewModel.isProcessing.collectAsState()
+    val processingStatus by viewModel.processingStatus.collectAsState()
+    val selectedMediaUri by viewModel.selectedMediaUri.collectAsState()
+    val selectedFileName by viewModel.selectedFileName.collectAsState()
+    val selectedFileSize by viewModel.selectedFileSize.collectAsState()
+    val mediaDurationMs by viewModel.mediaDurationMs.collectAsState()
+    val trimRange by viewModel.trimRange.collectAsState()
+    val isPlaying by viewModel.isPlaying.collectAsState()
+    val currentPlaybackPos by viewModel.currentPlaybackPos.collectAsState()
+    val currentSystemNotificationSound by viewModel.currentSystemNotificationSound.collectAsState()
+    val currentScreen by viewModel.currentScreen.collectAsState()
 
-    val mediaPlayer = remember { MediaPlayer() }
-
-    var currentSystemNotificationSound by remember { mutableStateOf("Checking...") }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    var currentScreen by remember { mutableStateOf("customizer") }
 
     LaunchedEffect(Unit) {
-        currentSystemNotificationSound = getCurrentNotificationSoundName(context)
+        viewModel.refreshNotificationSoundName(context)
     }
 
     LaunchedEffect(userEmail) {
-        if (userEmail.isNotEmpty()) {
-            isProcessing = true
-            processingStatus = "Loading cloud sound preference..."
-            try {
-                val db = FirebaseFirestore.getInstance()
-                db.collection("users").document(userEmail).get()
-                    .addOnSuccessListener { document ->
-                        if (document != null && document.exists()) {
-                            val fileName = document.getString("selectedFileName") ?: ""
-                            val fileSize = document.getString("selectedFileSize") ?: ""
-                            val durationMs = document.getLong("mediaDurationMs") ?: 0L
-                            val start = document.getDouble("trimRangeStart")?.toFloat() ?: 0f
-                            val end = document.getDouble("trimRangeEnd")?.toFloat() ?: durationMs.toFloat()
-                            val storagePath = document.getString("audioStoragePath") ?: ""
-                            
-                            if (fileName.isNotEmpty() && storagePath.isNotEmpty()) {
-                                try {
-                                    selectedFileName = fileName
-                                    selectedFileSize = fileSize
-                                    mediaDurationMs = durationMs
-                                    trimRange = start..end
-                                    
-                                    val storage = com.google.firebase.storage.FirebaseStorage.getInstance()
-                                    val storageRef = storage.reference.child(storagePath)
-                                    val localFile = File(context.cacheDir, "cloud_$fileName")
-                                    
-                                    storageRef.getFile(localFile)
-                                        .addOnSuccessListener {
-                                            try {
-                                                val restoredUri = Uri.fromFile(localFile)
-                                                selectedMediaUri = restoredUri
-                                                mediaPlayer.reset()
-                                                mediaPlayer.setDataSource(context, restoredUri)
-                                                mediaPlayer.prepare()
-                                                currentPlaybackPos = start
-                                            } catch (e: Exception) {
-                                                e.printStackTrace()
-                                            }
-                                            isProcessing = false
-                                        }
-                                        .addOnFailureListener {
-                                            isProcessing = false
-                                            Toast.makeText(context, "Failed to download cloud sound", Toast.LENGTH_SHORT).show()
-                                        }
-                                } catch (e: Exception) {
-                                    isProcessing = false
-                                    e.printStackTrace()
-                                }
-                            } else {
-                                isProcessing = false
-                            }
-                        } else {
-                            isProcessing = false
-                        }
-                    }
-                    .addOnFailureListener {
-                        isProcessing = false
-                    }
-            } catch (e: Exception) {
-                isProcessing = false
-                e.printStackTrace()
-            }
-        }
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            mediaPlayer.release()
-        }
-    }
-
-    LaunchedEffect(isPlaying) {
-        if (isPlaying) {
-            mediaPlayer.start()
-            while (isPlaying) {
-                currentPlaybackPos = mediaPlayer.currentPosition.toFloat()
-                if (currentPlaybackPos >= trimRange.endInclusive) {
-                    mediaPlayer.pause()
-                    mediaPlayer.seekTo(trimRange.start.toInt())
-                    currentPlaybackPos = trimRange.start
-                    isPlaying = false
-                }
-                delay(50)
-            }
-        } else {
-            mediaPlayer.pause()
-        }
+        viewModel.loadCloudPreference(context, userEmail)
     }
 
     val mediaPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         uri?.let {
-            scope.launch {
-                isProcessing = true
-                processingStatus = "Reading selected file..."
-                
-                try {
-                    context.contentResolver.query(it, null, null, null, null)?.use { cursor ->
-                        if (cursor.moveToFirst()) {
-                            val nameIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
-                            val sizeIndex = cursor.getColumnIndex(MediaStore.MediaColumns.SIZE)
-                            if (nameIndex != -1) {
-                                selectedFileName = cursor.getString(nameIndex)
-                            } else {
-                                selectedFileName = "sound_clip.mp3"
-                            }
-                            if (sizeIndex != -1) {
-                                selectedFileSize = formatFileSize(cursor.getLong(sizeIndex))
-                            } else {
-                                selectedFileSize = "Unknown Size"
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    selectedFileName = "audio_file.mp3"
-                    selectedFileSize = ""
-                }
-
-                val mimeType = context.contentResolver.getType(it) ?: ""
-                val uriToUse = if (mimeType.startsWith("video/")) {
-                    processingStatus = "Extracting high-quality audio track..."
-                    val cacheFile = File(context.cacheDir, "extracted_audio_${System.currentTimeMillis()}.m4a")
-                    val success = extractAudioFromVideo(context, it, cacheFile)
-                    if (success) Uri.fromFile(cacheFile) else it
-                } else {
-                    it
-                }
-
-                try {
-                    processingStatus = "Preparing preview player..."
-                    mediaPlayer.reset()
-                    mediaPlayer.setDataSource(context, uriToUse)
-                    mediaPlayer.prepare()
-                    val duration = mediaPlayer.duration.toLong()
-                    mediaDurationMs = duration
-                    trimRange = 0f..duration.toFloat()
-                    currentPlaybackPos = 0f
-                    selectedMediaUri = uriToUse
-                } catch(e: Exception) {
-                    Toast.makeText(context, "Failed to load media file", Toast.LENGTH_SHORT).show()
-                    selectedFileName = ""
-                    selectedFileSize = ""
-                }
-                isProcessing = false
-            }
+            viewModel.onFilePicked(context, it)
         }
     }
 
@@ -789,7 +654,7 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
                     label = { Text("Sound Customizer", fontWeight = FontWeight.Bold) },
                     selected = currentScreen == "customizer",
                     onClick = {
-                        currentScreen = "customizer"
+                        viewModel.setCurrentScreen("customizer")
                         scope.launch { drawerState.close() }
                     },
                     icon = { Icon(Icons.Default.Home, contentDescription = null) },
@@ -800,7 +665,7 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
                     label = { Text("Developer Version", fontWeight = FontWeight.Bold) },
                     selected = currentScreen == "developer",
                     onClick = {
-                        currentScreen = "developer"
+                        viewModel.setCurrentScreen("developer")
                         scope.launch { drawerState.close() }
                     },
                     icon = { Icon(Icons.Default.Person, contentDescription = null) },
@@ -846,60 +711,42 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
                                 modifier = Modifier.size(28.dp)
                             )
                         }
-            TextButton(
-                onClick = {
-                    scope.launch(Dispatchers.IO) {
-                        try {
-                            val cacheFiles = context.cacheDir.listFiles()
-                            cacheFiles?.forEach { file ->
-                                if (file.isFile) {
-                                    file.delete()
+                        TextButton(
+                            onClick = {
+                                viewModel.clearSelectedFile()
+                                scope.launch(Dispatchers.IO) {
+                                    try {
+                                        val cacheFiles = context.cacheDir.listFiles()
+                                        cacheFiles?.forEach { file ->
+                                            if (file.isFile) {
+                                                file.delete()
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
                                 }
-                            }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
+                                viewModel.refreshNotificationSoundName(context)
+                                Toast.makeText(context, "Session cleared & temporary files removed", Toast.LENGTH_SHORT).show()
+                            },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            ),
+                            enabled = !isProcessing,
+                            modifier = Modifier.testTag("clear_session_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Clear Session",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Clear Session",
+                                fontWeight = FontWeight.SemiBold,
+                                style = MaterialTheme.typography.labelLarge
+                            )
                         }
-                        withContext(Dispatchers.Main) {
-                            try {
-                                isPlaying = false
-                                if (mediaPlayer.isPlaying) {
-                                    mediaPlayer.stop()
-                                }
-                                mediaPlayer.reset()
-                            } catch (e: Exception) {
-                                // ignore
-                            }
-                            selectedMediaUri = null
-                            selectedFileName = ""
-                            selectedFileSize = ""
-                            mediaDurationMs = 0L
-                            trimRange = 0f..100f
-                            currentPlaybackPos = 0f
-                            processingStatus = ""
-                            isProcessing = false
-                            currentSystemNotificationSound = getCurrentNotificationSoundName(context)
-                            Toast.makeText(context, "Session cleared & temporary files removed", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                },
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error
-                ),
-                enabled = !isProcessing,
-                modifier = Modifier.testTag("clear_session_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Clear Session",
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Clear Session",
-                    fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.labelLarge
-                )
-            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -978,7 +825,7 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
                     }
                     IconButton(
                         onClick = {
-                            currentSystemNotificationSound = getCurrentNotificationSoundName(context)
+                            viewModel.refreshNotificationSoundName(context)
                             Toast.makeText(context, "Current sound refreshed", Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.size(32.dp)
@@ -1019,66 +866,7 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
                                 context.startActivity(intent)
                                 Toast.makeText(context, "Please allow Write Settings permission and try again.", Toast.LENGTH_LONG).show()
                             } else {
-                                try {
-                                    // 1. Delete custom ringtones from MediaStore to clean them up
-                                    deleteCustomRingtonesFromSystem(context)
-                                    
-                                    // 2. Fetch concrete system default URIs
-                                    val defaultNotificationUri = getSystemDefaultNotificationUri(context)
-                                    val defaultRingtoneUri = getSystemDefaultRingtoneUri(context)
-                                    
-                                    // 3. Set actual defaults back to system-provided native sounds
-                                    RingtoneManager.setActualDefaultRingtoneUri(
-                                        context,
-                                        RingtoneManager.TYPE_NOTIFICATION,
-                                        defaultNotificationUri
-                                    )
-                                    try {
-                                        RingtoneManager.setActualDefaultRingtoneUri(
-                                            context,
-                                            RingtoneManager.TYPE_RINGTONE,
-                                            defaultRingtoneUri
-                                        )
-                                    } catch (e: Exception) {}
-                                    
-                                    currentSystemNotificationSound = getCurrentNotificationSoundName(context)
-                                    
-                                    // Clear Firestore preferences document and delete sound file from Cloud Storage if email is provided
-                                    if (userEmail.isNotEmpty()) {
-                                        try {
-                                            val db = FirebaseFirestore.getInstance()
-                                            db.collection("users").document(userEmail).delete()
-                                            
-                                            val safeEmail = userEmail.replace("@", "_").replace(".", "_")
-                                            val storage = com.google.firebase.storage.FirebaseStorage.getInstance()
-                                            storage.reference.child("users/$safeEmail/notification_sound").delete()
-                                                .addOnFailureListener {
-                                                    // ignore if file doesn't exist
-                                                }
-                                        } catch (e: Exception) {
-                                            e.printStackTrace()
-                                        }
-                                    }
-                                    
-                                    // Reset active loaded media file states from dashboard
-                                    isPlaying = false
-                                    try {
-                                        if (mediaPlayer.isPlaying) {
-                                            mediaPlayer.stop()
-                                        }
-                                        mediaPlayer.reset()
-                                    } catch (e: Exception) {}
-                                    selectedMediaUri = null
-                                    selectedFileName = ""
-                                    selectedFileSize = ""
-                                    mediaDurationMs = 0L
-                                    trimRange = 0f..100f
-                                    currentPlaybackPos = 0f
-                                    
-                                    Toast.makeText(context, "Notification sound reset to default!", Toast.LENGTH_SHORT).show()
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "Failed to reset sound: ${e.message}", Toast.LENGTH_LONG).show()
-                                }
+                                viewModel.resetToSystemDefault(context, userEmail, setAsNotification = true, setAsRingtone = true)
                             }
                         },
                         colors = ButtonDefaults.textButtonColors(
@@ -1145,13 +933,7 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
                 }
             },
             onClearClick = {
-                isPlaying = false
-                selectedMediaUri = null
-                selectedFileName = ""
-                selectedFileSize = ""
-                mediaDurationMs = 0L
-                trimRange = 0f..100f
-                currentPlaybackPos = 0f
+                viewModel.clearSelectedFile()
             },
             isProcessing = isProcessing
         )
@@ -1165,21 +947,10 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
                 isPlaying = isPlaying,
                 currentPlaybackPos = currentPlaybackPos,
                 trimRange = trimRange,
-                onPlayPauseToggle = { isPlaying = !isPlaying },
-                onSeek = { pos ->
-                    currentPlaybackPos = pos
-                    mediaPlayer.seekTo(pos.toInt())
-                },
-                onRewind5s = {
-                    val newPos = (currentPlaybackPos - 5000f).coerceAtLeast(trimRange.start)
-                    currentPlaybackPos = newPos
-                    mediaPlayer.seekTo(newPos.toInt())
-                },
-                onForward5s = {
-                    val newPos = (currentPlaybackPos + 5000f).coerceAtMost(trimRange.endInclusive)
-                    currentPlaybackPos = newPos
-                    mediaPlayer.seekTo(newPos.toInt())
-                }
+                onPlayPauseToggle = { viewModel.togglePlayPause() },
+                onSeek = { pos -> viewModel.seekTo(pos) },
+                onRewind5s = { viewModel.rewind5s() },
+                onForward5s = { viewModel.forward5s() }
             )
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -1200,7 +971,7 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Specify start and end ranges to keep. Selected duration: ${formatTime((trimRange.endInclusive - trimRange.start).toLong())}",
+                        text = "Specify start and end ranges to keep. Selected duration: ${RingtoneUtils.formatTime((trimRange.endInclusive - trimRange.start).toLong())}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                     )
@@ -1209,15 +980,12 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
                         value = trimRange,
                         onValueChange = { 
                             val startChanged = trimRange.start != it.start
-                            trimRange = it 
+                            viewModel.updateTrimRange(it)
                             if (startChanged) {
-                                mediaPlayer.seekTo(it.start.toInt())
-                                currentPlaybackPos = it.start
+                                viewModel.seekTo(it.start)
                             } else {
-                                // Preview the last 2 seconds when dragging the end handle
                                 val seekPos = (it.endInclusive - 2000f).coerceAtLeast(it.start)
-                                mediaPlayer.seekTo(seekPos.toInt())
-                                currentPlaybackPos = seekPos
+                                viewModel.seekTo(seekPos)
                             }
                         },
                         valueRange = 0f..mediaDurationMs.toFloat(),
@@ -1228,13 +996,13 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "Start: ${formatTime(trimRange.start.toLong())}",
+                            text = "Start: ${RingtoneUtils.formatTime(trimRange.start.toLong())}",
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = "End: ${formatTime(trimRange.endInclusive.toLong())}",
+                            text = "End: ${RingtoneUtils.formatTime(trimRange.endInclusive.toLong())}",
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary
@@ -1245,100 +1013,12 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            val processAudioAndSet = { setAsNotification: Boolean, setAsRingtone: Boolean ->
-                scope.launch {
-                    isProcessing = true
-                    isPlaying = false
-                    processingStatus = "Slicing and normalizing audio levels..."
-                    
-                    val processedFile = File(context.cacheDir, "processed_audio_${System.currentTimeMillis()}.m4a")
-                    val success = AudioProcessor.process(
-                        context,
-                        selectedMediaUri!!,
-                        processedFile,
-                        trimRange.start.toLong(),
-                        trimRange.endInclusive.toLong()
-                    )
-                    
-                    val finalUri: Uri
-                    val finalIsExtracted: Boolean
-                    
-                    if (success) {
-                        finalUri = Uri.fromFile(processedFile)
-                        finalIsExtracted = true
-                        Toast.makeText(context, "Audio normalized successfully!", Toast.LENGTH_SHORT).show()
-                    } else {
-                        finalUri = selectedMediaUri!!
-                        finalIsExtracted = false
-                        Toast.makeText(context, "Audio processing failed, using original file.", Toast.LENGTH_SHORT).show()
-                    }
-                    
-                    setRingtoneFromUri(
-                        context,
-                        finalUri,
-                        isExtracted = finalIsExtracted,
-                        setAsNotification = setAsNotification,
-                        setAsRingtone = setAsRingtone
-                    )
-
-                    // Upload to Cloud Storage and save metadata in Firestore if email is provided
-                    if (userEmail.isNotEmpty()) {
-                        processingStatus = "Syncing with cloud storage..."
-                        try {
-                            val safeEmail = userEmail.replace("@", "_").replace(".", "_")
-                            val storage = com.google.firebase.storage.FirebaseStorage.getInstance()
-                            val storageRef = storage.reference.child("users/$safeEmail/notification_sound")
-                            
-                            storageRef.putFile(finalUri)
-                                .addOnSuccessListener {
-                                    val db = FirebaseFirestore.getInstance()
-                                    val data = hashMapOf(
-                                        "selectedFileName" to selectedFileName,
-                                        "selectedFileSize" to selectedFileSize,
-                                        "trimRangeStart" to trimRange.start,
-                                        "trimRangeEnd" to trimRange.endInclusive,
-                                        "mediaDurationMs" to mediaDurationMs,
-                                        "audioStoragePath" to "users/$safeEmail/notification_sound",
-                                        "lastUpdated" to System.currentTimeMillis()
-                                    )
-                                    db.collection("users").document(userEmail).set(data)
-                                        .addOnSuccessListener {
-                                            isProcessing = false
-                                            selectedMediaUri = null
-                                            selectedFileName = ""
-                                            selectedFileSize = ""
-                                            currentSystemNotificationSound = getCurrentNotificationSoundName(context)
-                                        }
-                                        .addOnFailureListener { e ->
-                                            isProcessing = false
-                                            Toast.makeText(context, "Firestore sync failed: ${e.message}", Toast.LENGTH_SHORT).show()
-                                        }
-                                }
-                                .addOnFailureListener { e ->
-                                    isProcessing = false
-                                    Toast.makeText(context, "Cloud storage upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
-                                }
-                        } catch (e: Exception) {
-                            isProcessing = false
-                            e.printStackTrace()
-                            Toast.makeText(context, "Sync error: ${e.message}", Toast.LENGTH_SHORT).show()
-                        }
-                    } else {
-                        isProcessing = false
-                        selectedMediaUri = null
-                        selectedFileName = ""
-                        selectedFileSize = ""
-                        currentSystemNotificationSound = getCurrentNotificationSoundName(context)
-                    }
-                }
-            }
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Button(
-                    onClick = { processAudioAndSet(true, false) },
+                    onClick = { viewModel.processAudioAndSet(context, userEmail, setAsNotification = true, setAsRingtone = false) },
                     modifier = Modifier.weight(1f).height(56.dp),
                     shape = RoundedCornerShape(12.dp),
                     enabled = !isProcessing
@@ -1355,7 +1035,7 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
                 }
 
                 Button(
-                    onClick = { processAudioAndSet(false, true) },
+                    onClick = { viewModel.processAudioAndSet(context, userEmail, setAsNotification = false, setAsRingtone = true) },
                     modifier = Modifier.weight(1f).height(56.dp),
                     shape = RoundedCornerShape(12.dp),
                     enabled = !isProcessing
@@ -1376,10 +1056,7 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
 
             TextButton(
                 onClick = {
-                    isPlaying = false
-                    selectedMediaUri = null
-                    selectedFileName = ""
-                    selectedFileSize = ""
+                    viewModel.clearSelectedFile()
                 },
                 enabled = !isProcessing,
                 modifier = Modifier.fillMaxWidth()
@@ -1390,7 +1067,7 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
     }
 } else {
     DeveloperVersionScreen(
-        onBackToCustomizer = { currentScreen = "customizer" },
+        onBackToCustomizer = { viewModel.setCurrentScreen("customizer") },
         onMenuClick = { scope.launch { drawerState.open() } }
     )
 }
@@ -1398,268 +1075,7 @@ fun NotificationSetterScreen(modifier: Modifier = Modifier, userEmail: String = 
 }
 }
 
-fun formatFileSize(bytes: Long): String {
-    if (bytes <= 0) return "0 KB"
-    val kb = bytes / 1024f
-    if (kb < 1024) return String.format("%.1f KB", kb)
-    val mb = kb / 1024f
-    return String.format("%.1f MB", mb)
-}
 
-fun formatTime(ms: Long): String {
-    val totalSeconds = ms / 1000
-    val minutes = totalSeconds / 60
-    val seconds = totalSeconds % 60
-    return String.format("%02d:%02d", minutes, seconds)
-}
-
-
-
-
-suspend fun extractAudioFromVideo(context: Context, videoUri: Uri, outputFile: File): Boolean = withContext(Dispatchers.IO) {
-    val extractor = android.media.MediaExtractor()
-    var muxer: android.media.MediaMuxer? = null
-    var audioTrackIndex = -1
-    var muxerAudioTrackIndex = -1
-    try {
-        extractor.setDataSource(context, videoUri, null)
-        for (i in 0 until extractor.trackCount) {
-            val format = extractor.getTrackFormat(i)
-            val mime = format.getString(android.media.MediaFormat.KEY_MIME)
-            if (mime?.startsWith("audio/") == true) {
-                if (mime != "audio/mp4a-latm" && mime != "audio/3gpp" && mime != "audio/amr-wb") {
-                    return@withContext false
-                }
-                extractor.selectTrack(i)
-                audioTrackIndex = i
-                muxer = android.media.MediaMuxer(outputFile.absolutePath, android.media.MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
-                muxerAudioTrackIndex = muxer.addTrack(format)
-                break
-            }
-        }
-        if (audioTrackIndex == -1 || muxer == null) return@withContext false
-        muxer.start()
-        val buffer = java.nio.ByteBuffer.allocate(1024 * 1024)
-        val bufferInfo = android.media.MediaCodec.BufferInfo()
-        while (true) {
-            bufferInfo.size = extractor.readSampleData(buffer, 0)
-            if (bufferInfo.size < 0) break
-            bufferInfo.presentationTimeUs = extractor.sampleTime
-            bufferInfo.offset = 0
-            val sampleFlags = extractor.sampleFlags
-            bufferInfo.flags = if ((sampleFlags and android.media.MediaExtractor.SAMPLE_FLAG_SYNC) != 0) {
-                android.media.MediaCodec.BUFFER_FLAG_KEY_FRAME
-            } else {
-                0
-            }
-            muxer.writeSampleData(muxerAudioTrackIndex, buffer, bufferInfo)
-            extractor.advance()
-        }
-        return@withContext true
-    } catch (e: Exception) {
-        e.printStackTrace()
-        return@withContext false
-    } finally {
-        try { extractor.release() } catch (e: Exception) {}
-        try { muxer?.stop(); muxer?.release() } catch (e: Exception) {}
-    }
-}
-
-fun setRingtoneFromUri(context: Context, sourceUri: Uri, isExtracted: Boolean = false, setAsNotification: Boolean = true, setAsRingtone: Boolean = false) {
-    if (!Settings.System.canWrite(context)) {
-        Toast.makeText(context, "Write Settings permission is missing.", Toast.LENGTH_SHORT).show()
-        return
-    }
-
-    try {
-        var displayName = "custom_notification_sound_${System.currentTimeMillis()}.mp3"
-        if (!isExtracted) {
-            context.contentResolver.query(sourceUri, null, null, null, null)?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    val nameIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
-                    if (nameIndex != -1) {
-                        displayName = cursor.getString(nameIndex)
-                    }
-                }
-            }
-        } else {
-            displayName = "extracted_audio_${System.currentTimeMillis()}.m4a"
-        }
-
-        // Clean up display name to avoid illegal chars
-        displayName = displayName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
-        val title = displayName.substringBeforeLast(".")
-        val mimeType = if (isExtracted) "audio/mp4" else (context.contentResolver.getType(sourceUri) ?: "audio/mpeg")
-
-        val contentValues = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
-            put(MediaStore.Audio.Media.TITLE, title)
-            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
-            put(MediaStore.Audio.Media.IS_NOTIFICATION, 1)
-            put(MediaStore.Audio.Media.IS_RINGTONE, 1)
-            put(MediaStore.Audio.Media.IS_ALARM, 1)
-            put(MediaStore.Audio.Media.IS_MUSIC, 0)
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_NOTIFICATIONS)
-                put(MediaStore.Audio.Media.IS_PENDING, 1)
-            } else {
-                // Legacy path for older versions
-                val directory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_NOTIFICATIONS)
-                if (!directory.exists()) {
-                    directory.mkdirs()
-                }
-                val targetFile = File(directory, displayName)
-                put(MediaStore.MediaColumns.DATA, targetFile.absolutePath)
-            }
-        }
-
-        val uri = context.contentResolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, contentValues)
-        if (uri != null) {
-            context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                context.contentResolver.openInputStream(sourceUri)?.use { inputStream ->
-                    inputStream.copyTo(outputStream)
-                }
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val updateValues = ContentValues().apply {
-                    put(MediaStore.Audio.Media.IS_PENDING, 0)
-                }
-                context.contentResolver.update(uri, updateValues, null, null)
-            } else {
-                // Scan the file for older versions
-                val directory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_NOTIFICATIONS)
-                val targetFile = File(directory, displayName)
-                android.media.MediaScannerConnection.scanFile(
-                    context,
-                    arrayOf(targetFile.absolutePath),
-                    arrayOf(mimeType)
-                ) { path, scannedUri ->
-                    // Done scanning
-                }
-            }
-
-            // Set as default notification sound or ringtone
-            if (setAsNotification) {
-                RingtoneManager.setActualDefaultRingtoneUri(context, RingtoneManager.TYPE_NOTIFICATION, uri)
-            }
-            if (setAsRingtone) {
-                try {
-                    RingtoneManager.setActualDefaultRingtoneUri(context, RingtoneManager.TYPE_RINGTONE, uri)
-                } catch (e: Exception) {
-                    // ignore if restricted
-                }
-            }
-
-            val msg = if (setAsNotification && setAsRingtone) "Notification & Ringtone sound updated successfully!" 
-                      else if (setAsNotification) "Notification sound updated successfully!"
-                      else "Ringtone updated successfully!"
-            Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-        } else {
-            Toast.makeText(context, "Failed to save audio file to system database.", Toast.LENGTH_SHORT).show()
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-        Toast.makeText(context, "Error setting sound: ${e.message}", Toast.LENGTH_LONG).show()
-    }
-}
-
-fun getCurrentNotificationSoundName(context: Context): String {
-    return try {
-        val uri = RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_NOTIFICATION)
-        if (uri != null) {
-            val ringtone = RingtoneManager.getRingtone(context, uri)
-            ringtone?.getTitle(context) ?: "Custom Sound"
-        } else {
-            "None / Silent"
-        }
-    } catch (e: Exception) {
-        "Default / Unknown"
-    }
-}
-
-fun deleteCustomRingtonesFromSystem(context: Context) {
-    try {
-        val projection = arrayOf(MediaStore.Audio.Media._ID, MediaStore.Audio.Media.DISPLAY_NAME)
-        val selection = "${MediaStore.Audio.Media.DISPLAY_NAME} LIKE ? OR ${MediaStore.Audio.Media.DISPLAY_NAME} LIKE ?"
-        val selectionArgs = arrayOf("%custom_notification_sound_%", "%extracted_audio_%")
-        context.contentResolver.query(
-            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-            projection,
-            selection,
-            selectionArgs,
-            null
-        )?.use { cursor ->
-            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-            while (cursor.moveToNext()) {
-                val id = cursor.getLong(idColumn)
-                val uri = android.content.ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
-                try {
-                    context.contentResolver.delete(uri, null, null)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-}
-
-fun getSystemDefaultNotificationUri(context: Context): Uri {
-    try {
-        val manager = RingtoneManager(context).apply {
-            setType(RingtoneManager.TYPE_NOTIFICATION)
-        }
-        val cursor = manager.cursor
-        if (cursor.moveToFirst()) {
-            do {
-                val id = cursor.getLong(RingtoneManager.ID_COLUMN_INDEX)
-                val uriStr = cursor.getString(RingtoneManager.URI_COLUMN_INDEX)
-                val title = cursor.getString(RingtoneManager.TITLE_COLUMN_INDEX) ?: ""
-                val fullUri = Uri.parse("$uriStr/$id")
-                
-                if (uriStr.contains("internal") && 
-                    !title.contains("extracted_audio", ignoreCase = true) && 
-                    !title.contains("custom_notification_sound", ignoreCase = true) && 
-                    !title.contains("sound_clip", ignoreCase = true)) {
-                    return fullUri
-                }
-            } while (cursor.moveToNext())
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-    return RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION) ?: Settings.System.DEFAULT_NOTIFICATION_URI
-}
-
-fun getSystemDefaultRingtoneUri(context: Context): Uri {
-    try {
-        val manager = RingtoneManager(context).apply {
-            setType(RingtoneManager.TYPE_RINGTONE)
-        }
-        val cursor = manager.cursor
-        if (cursor.moveToFirst()) {
-            do {
-                val id = cursor.getLong(RingtoneManager.ID_COLUMN_INDEX)
-                val uriStr = cursor.getString(RingtoneManager.URI_COLUMN_INDEX)
-                val title = cursor.getString(RingtoneManager.TITLE_COLUMN_INDEX) ?: ""
-                val fullUri = Uri.parse("$uriStr/$id")
-                
-                if (uriStr.contains("internal") && 
-                    !title.contains("extracted_audio", ignoreCase = true) && 
-                    !title.contains("custom_notification_sound", ignoreCase = true) && 
-                    !title.contains("sound_clip", ignoreCase = true)) {
-                    return fullUri
-                }
-            } while (cursor.moveToNext())
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-    }
-    return RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE) ?: Settings.System.DEFAULT_RINGTONE_URI
-}
 
 @Composable
 fun DeveloperVersionScreen(
