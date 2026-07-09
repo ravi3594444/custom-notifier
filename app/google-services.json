@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "244904660493",
+    "project_id": "notifier-nxytw",
+    "storage_bucket": "notifier-nxytw.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:244904660493:android:b29aed78b20f259a44cf44",
+        "android_client_info": {
+          "package_name": "com.aistudio.notifier.nxytw"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "244904660493-ol7u3h24361fdfr0abgn89dtgpvgksbe.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBzqRlz1ws1GozzvjnNLXpRELdNUOmbmkU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "244904660493-ol7u3h24361fdfr0abgn89dtgpvgksbe.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
