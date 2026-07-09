@@ -356,9 +356,12 @@ class NotificationSetterViewModel : ViewModel() {
                 )
             }
 
+            _isProcessing.value = false
+            clearSelectedFile()
+            refreshNotificationSoundName(appContext)
+
             // Upload to Cloud Storage and save metadata in Firestore if email is provided
             if (userEmail.isNotEmpty()) {
-                _processingStatus.value = "Syncing with cloud storage..."
                 try {
                     val safeEmail = userEmail.replace("@", "_").replace(".", "_")
                     val storage = com.google.firebase.storage.FirebaseStorage.getInstance()
@@ -378,42 +381,16 @@ class NotificationSetterViewModel : ViewModel() {
                                     "lastUpdated" to System.currentTimeMillis()
                                 )
                                 db.collection("users").document(userEmail).set(data)
-                                    .addOnSuccessListener {
-                                        _isProcessing.value = false
-                                        clearSelectedFile()
-                                        refreshNotificationSoundName(appContext)
-                                    }
-                                    .addOnFailureListener { e ->
-                                        _isProcessing.value = false
-                                        Toast.makeText(appContext, "Saved locally! Firestore sync skipped.", Toast.LENGTH_SHORT).show()
-                                        clearSelectedFile()
-                                        refreshNotificationSoundName(appContext)
-                                    }
                             } catch (e: Exception) {
                                 e.printStackTrace()
-                                _isProcessing.value = false
-                                Toast.makeText(appContext, "Saved locally! Cloud database offline.", Toast.LENGTH_SHORT).show()
-                                clearSelectedFile()
-                                refreshNotificationSoundName(appContext)
                             }
                         }
                         .addOnFailureListener { e ->
-                            _isProcessing.value = false
-                            Toast.makeText(appContext, "Saved locally! Cloud upload skipped.", Toast.LENGTH_SHORT).show()
-                            clearSelectedFile()
-                            refreshNotificationSoundName(appContext)
+                            e.printStackTrace()
                         }
                 } catch (e: Exception) {
-                    _isProcessing.value = false
                     e.printStackTrace()
-                    Toast.makeText(appContext, "Saved locally! Cloud backup offline.", Toast.LENGTH_SHORT).show()
-                    clearSelectedFile()
-                    refreshNotificationSoundName(appContext)
                 }
-            } else {
-                _isProcessing.value = false
-                clearSelectedFile()
-                refreshNotificationSoundName(appContext)
             }
         }
     }
