@@ -165,7 +165,7 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
             ) {
                 // Custom Hand-drawn Notifier Logo
                 Image(
-                    painter = painterResource(id = R.drawable.custom_notifier_icon_1783452599256),
+                    painter = painterResource(id = R.drawable.app_logo_icon_1783527284606),
                     contentDescription = "App Logo",
                     modifier = Modifier
                         .size(80.dp)

@@ -104,7 +104,7 @@ fun SplashScreen(onLoadingFinished: () -> Unit) {
         ) {
             // Elegant brand illustration featuring your hand-drawn sketch
             Image(
-                painter = painterResource(id = R.drawable.custom_notifier_icon_1783452599256),
+                painter = painterResource(id = R.drawable.app_logo_icon_1783527284606),
                 contentDescription = "Notifier Logo",
                 modifier = Modifier
                     .size(160.dp)
