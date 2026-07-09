@@ -285,13 +285,38 @@ object RingtoneUtils {
         }
 
         try {
+            // Step 1: Copy the source audio bytes into a temp file we control. This avoids
+            // problems where sourceUri is a content:// picker Uri that the system ringtone
+            // manager can't resolve later (a common reason "set one but it doesn't go to
+            // default audio" — the saved Uri was scoped to the picker and lost on restart).
+            val tempFile = File(context.cacheDir, "notifier_set_${System.currentTimeMillis()}.dat")
+            val copiedOk = withContext(Dispatchers.IO) {
+                try {
+                    context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                        tempFile.outputStream().use { output -> input.copyTo(output) }
+                    }
+                    true
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    false
+                }
+            }
+            if (!copiedOk || !tempFile.exists() || tempFile.length() == 0L) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Failed to read source audio.", Toast.LENGTH_SHORT).show()
+                }
+                return
+            }
+
+            // Step 2: Pick a clean display name and mime type for the new MediaStore entry.
             var displayName = "custom_notification_sound_${System.currentTimeMillis()}.mp3"
             if (!isExtracted) {
                 context.contentResolver.query(sourceUri, null, null, null, null)?.use { cursor ->
                     if (cursor.moveToFirst()) {
                         val nameIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
                         if (nameIndex != -1) {
-                            displayName = cursor.getString(nameIndex)
+                            val pickedName = cursor.getString(nameIndex)
+                            if (!pickedName.isNullOrBlank()) displayName = pickedName
                         }
                     }
                 }
@@ -304,6 +329,11 @@ object RingtoneUtils {
             val title = displayName.substringBeforeLast(".")
             val mimeType = if (isExtracted) "audio/mp4" else (context.contentResolver.getType(sourceUri) ?: "audio/mpeg")
 
+            // Step 3: Clean up any previous custom entries so we don't pile up duplicates
+            // every time the user picks a new sound — that pile-up is another reason the
+            // system sometimes appears to "not switch" to the new sound.
+            deleteCustomRingtonesFromSystem(context)
+
             val contentValues = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
                 put(MediaStore.Audio.Media.TITLE, title)
@@ -312,7 +342,7 @@ object RingtoneUtils {
                 put(MediaStore.Audio.Media.IS_RINGTONE, if (setAsRingtone) 1 else 0)
                 put(MediaStore.Audio.Media.IS_ALARM, 1)
                 put(MediaStore.Audio.Media.IS_MUSIC, 0)
-                
+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     val relativePath = if (setAsRingtone) Environment.DIRECTORY_RINGTONES else Environment.DIRECTORY_NOTIFICATIONS
                     put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
@@ -330,8 +360,10 @@ object RingtoneUtils {
 
             val uri = context.contentResolver.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, contentValues)
             if (uri != null) {
+                // Copy from our local temp file (NOT the source picker Uri) so the bytes
+                // are guaranteed to be readable.
                 context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    context.contentResolver.openInputStream(sourceUri)?.use { inputStream ->
+                    tempFile.inputStream().use { inputStream ->
                         inputStream.copyTo(outputStream)
                     }
                 }
@@ -341,32 +373,66 @@ object RingtoneUtils {
                         put(MediaStore.Audio.Media.IS_PENDING, 0)
                     }
                     context.contentResolver.update(uri, updateValues, null, null)
-                } else {
-                    val dirName = if (setAsRingtone) Environment.DIRECTORY_RINGTONES else Environment.DIRECTORY_NOTIFICATIONS
-                    val directory = Environment.getExternalStoragePublicDirectory(dirName)
-                    val targetFile = File(directory, displayName)
-                    MediaScannerConnection.scanFile(
-                        context,
-                        arrayOf(targetFile.absolutePath),
-                        arrayOf(mimeType)
-                    ) { _, _ -> }
                 }
 
+                // Give MediaStore a moment to commit the IS_PENDING=0 change before we ask
+                // the system to point the default ringtone at the new row. Without this
+                // small wait, some OEM ROMs still see the file as "pending" and silently
+                // fall back to the previous sound.
+                kotlinx.coroutines.delay(150L)
+
+                // Always run MediaScanner on the inserted file so it's fully indexed
+                // (helps older Android and some OEM ROMs that don't pick up the new
+                // entry immediately after IS_PENDING flips to 0).
+                runMediaScan(context, uri, mimeType)
+
+                // Now point the system default at our newly-inserted, fully-indexed entry.
                 if (setAsNotification) {
-                    RingtoneManager.setActualDefaultRingtoneUri(context, RingtoneManager.TYPE_NOTIFICATION, uri)
+                    try {
+                        RingtoneManager.setActualDefaultRingtoneUri(
+                            context,
+                            RingtoneManager.TYPE_NOTIFICATION,
+                            uri
+                        )
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
                 if (setAsRingtone) {
                     try {
-                        RingtoneManager.setActualDefaultRingtoneUri(context, RingtoneManager.TYPE_RINGTONE, uri)
+                        RingtoneManager.setActualDefaultRingtoneUri(
+                            context,
+                            RingtoneManager.TYPE_RINGTONE,
+                            uri
+                        )
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
                 }
 
-                var msg = if (setAsNotification && setAsRingtone) "Notification & Ringtone sound updated successfully!" 
-                          else if (setAsNotification) "Notification sound updated successfully!"
-                          else "Ringtone updated successfully!"
-                          
+                // Step 4: Verify the default actually points at our new Uri. If verification
+                // fails we tell the user, so they don't have to manually open System Sound
+                // Settings to figure out why their custom sound "didn't go to default audio".
+                val verifiedNotification = if (setAsNotification) {
+                    val current = RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_NOTIFICATION)
+                    current != null && current == uri
+                } else true
+                val verifiedRingtone = if (setAsRingtone) {
+                    val current = RingtoneManager.getActualDefaultRingtoneUri(context, RingtoneManager.TYPE_RINGTONE)
+                    current != null && current == uri
+                } else true
+
+                var msg = when {
+                    setAsNotification && setAsRingtone && verifiedNotification && verifiedRingtone ->
+                        "Notification & Ringtone sound updated successfully!"
+                    setAsNotification && verifiedNotification ->
+                        "Notification sound updated successfully!"
+                    setAsRingtone && verifiedRingtone ->
+                        "Ringtone updated successfully!"
+                    else ->
+                        "Sound saved but system didn't accept it as default. Open System Sound Settings to confirm."
+                }
+
                 try {
                     val am = context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
                     when (am.ringerMode) {
@@ -391,11 +457,36 @@ object RingtoneUtils {
                     Toast.makeText(context, "Failed to save audio file to system database.", Toast.LENGTH_SHORT).show()
                 }
             }
+
+            // Best-effort cleanup of the temp file — never throw on failure.
+            try { if (tempFile.exists()) tempFile.delete() } catch (_: Exception) {}
         } catch (e: Exception) {
             e.printStackTrace()
             withContext(Dispatchers.Main) {
                 Toast.makeText(context, "Error setting sound: ${e.message}", Toast.LENGTH_LONG).show()
             }
+        }
+    }
+
+    /**
+     * Triggers a MediaScanner scan on the supplied Uri. On Android Q+ this is a no-op-ish
+     * refresh because MediaStore handles indexing, but on older versions (and on some OEM
+     * ROMs that ignore IS_PENDING flips) it's the only way to make the file visible to
+     * RingtoneManager.setActualDefaultRingtoneUri immediately.
+     */
+    private fun runMediaScan(context: Context, uri: Uri, mimeType: String) {
+        try {
+            val path = context.contentResolver.query(uri, arrayOf(MediaStore.MediaColumns.DATA), null, null, null)?.use {
+                if (it.moveToFirst()) {
+                    val idx = it.getColumnIndex(MediaStore.MediaColumns.DATA)
+                    if (idx >= 0) it.getString(idx) else null
+                } else null
+            }
+            if (!path.isNullOrBlank()) {
+                MediaScannerConnection.scanFile(context, arrayOf(path), arrayOf(mimeType)) { _, _ -> }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
