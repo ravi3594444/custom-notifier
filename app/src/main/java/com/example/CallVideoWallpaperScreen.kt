@@ -17,6 +17,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,6 +38,8 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material.icons.filled.VideoCall
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -651,6 +657,29 @@ fun VideoEditDialog(
     var nameFontSize by remember { mutableStateOf(video.nameFontSize ?: 15f) }
     var nameFontFamily by remember { mutableStateOf(video.nameFontFamily ?: "sans-serif") }
     
+    // Custom color states initialized from saved parameters or defaults
+    var selectedTextColorHex by remember {
+        mutableStateOf(
+            video.nameTextColor?.let { String.format("#%06X", it and 0xFFFFFF) } ?: "#FFFFFF"
+        )
+    }
+    
+    val initialBgHex = remember {
+        val c = video.nameBgColor ?: android.graphics.Color.parseColor("#80000000")
+        if (video.nameBgColor == android.graphics.Color.TRANSPARENT) "transparent"
+        else String.format("#%06X", c and 0xFFFFFF)
+    }
+    
+    val initialAlpha = remember {
+        val c = video.nameBgColor ?: android.graphics.Color.parseColor("#80000000")
+        if (video.nameBgColor == android.graphics.Color.TRANSPARENT) 0f
+        else ((c ushr 24) and 0xFF) / 255f
+    }
+    
+    var bgBaseColorHex by remember { mutableStateOf(initialBgHex) }
+    var bgAlpha by remember { mutableStateOf(initialAlpha) }
+    var isFullPreview by remember { mutableStateOf(false) }
+    
     val audioPicker = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -668,6 +697,29 @@ fun VideoEditDialog(
         }
     }
 
+    // Dynamic ARGB text and background colors computed on state updates
+    val parsedBgColor = remember(bgBaseColorHex, bgAlpha) {
+        if (bgBaseColorHex == "transparent") {
+            android.graphics.Color.TRANSPARENT
+        } else {
+            try {
+                val baseColor = android.graphics.Color.parseColor(bgBaseColorHex)
+                val alphaByte = (bgAlpha * 255f).roundToInt().coerceIn(0, 255)
+                (alphaByte shl 24) or (baseColor and 0x00FFFFFF)
+            } catch (e: Exception) {
+                android.graphics.Color.TRANSPARENT
+            }
+        }
+    }
+
+    val parsedTextColor = remember(selectedTextColorHex) {
+        try {
+            android.graphics.Color.parseColor(selectedTextColorHex)
+        } catch (e: Exception) {
+            android.graphics.Color.WHITE
+        }
+    }
+
     androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
@@ -676,277 +728,580 @@ fun VideoEditDialog(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Top Bar
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
-                    Text("Edit Wallpaper", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    TextButton(onClick = {
-                        val parsedStart = startMs.toLongOrNull()
-                        val parsedEnd = endMs.toLongOrNull()
-                        
-                        var finalAudioPath = video.customAudioPath
-                        if (customAudioUri != null) {
-                            finalAudioPath = VideoLibraryManager.importAudioForVideo(context, customAudioUri!!)
-                        }
-                        
-                        val updatedVideo = video.copy(
-                            trimStartMs = parsedStart,
-                            trimEndMs = parsedEnd,
-                            customAudioPath = finalAudioPath,
-                            videoScale = videoScale,
-                            namePositionY = namePositionY,
-                            answerStyle = answerStyle,
-                            nameFontSize = nameFontSize,
-                            nameFontFamily = nameFontFamily
-                        )
-                        viewModel.updateSavedVideo(context, userEmail, updatedVideo)
-                        onDismiss()
-                    }) {
-                        Text("Save")
-                    }
-                }
-
-                // Preview Area
-                BoxWithConstraints(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1.2f)
-                        .background(Color.Black)
-                        .clipToBounds()
-                ) {
-                    val previewHeight = maxHeight
-                    
-                    // Video Player Preview
-                    androidx.compose.ui.viewinterop.AndroidView(
-                        factory = { ctx ->
-                            android.widget.VideoView(ctx).apply {
-                                setVideoURI(android.net.Uri.fromFile(File(video.localFilePath)))
-                                setOnPreparedListener { mp ->
-                                    mp.isLooping = true
-                                    mp.setVolume(0f, 0f) // Mute preview so it doesn't disturb editing
-                                    val sMs = startMs.toLongOrNull() ?: 0L
-                                    if (sMs > 0) {
-                                        mp.seekTo(sMs.toInt())
-                                    }
-                                    start()
-                                }
-                            }
-                        },
-                        update = { view ->
-                            val sMs = startMs.toLongOrNull() ?: 0L
-                            val eMs = endMs.toLongOrNull() ?: 0L
-                            if (eMs > 0 && eMs > sMs) {
-                                view.postDelayed(object : Runnable {
-                                    override fun run() {
-                                        try {
-                                            if (view.isPlaying && view.currentPosition >= eMs) {
-                                                view.seekTo(sMs.coerceAtLeast(0).toInt())
-                                            }
-                                            view.postDelayed(this, 100)
-                                        } catch (_: Exception) {}
-                                    }
-                                }, 100)
-                            }
-                        },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .scale(videoScale)
-                    )
-
-                    // Draggable Caller Name Overlay
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (isFullPreview) {
+                    // ==================== FULL SCREEN PREVIEW MODE ====================
                     Box(
                         modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .offset { androidx.compose.ui.unit.IntOffset(0, (previewHeight.toPx() * namePositionY).roundToInt()) }
-                            .pointerInput(Unit) {
-                                detectVerticalDragGestures { change, dragAmount ->
-                                    change.consume()
-                                    val newY = namePositionY + (dragAmount / previewHeight.toPx())
-                                    namePositionY = newY.coerceIn(0f, 0.9f)
-                                }
-                            }
-                            .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .fillMaxSize()
+                            .background(Color.Black)
                     ) {
-                        Text(
-                            text = video.displayName,
-                            color = Color.White,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = nameFontSize.sp,
-                            fontFamily = callerFontFamily
+                        // Full Screen Video Player Preview
+                        androidx.compose.ui.viewinterop.AndroidView(
+                            factory = { ctx ->
+                                android.widget.VideoView(ctx).apply {
+                                    setVideoURI(android.net.Uri.fromFile(File(video.localFilePath)))
+                                    setOnPreparedListener { mp ->
+                                        mp.isLooping = true
+                                        mp.setVolume(0f, 0f) // Mute preview so it doesn't disturb editing
+                                        val sMs = startMs.toLongOrNull() ?: 0L
+                                        if (sMs > 0) {
+                                            mp.seekTo(sMs.toInt())
+                                        }
+                                        start()
+                                    }
+                                }
+                            },
+                            update = { view ->
+                                val sMs = startMs.toLongOrNull() ?: 0L
+                                val eMs = endMs.toLongOrNull() ?: 0L
+                                if (eMs > 0 && eMs > sMs) {
+                                    view.postDelayed(object : Runnable {
+                                        override fun run() {
+                                            try {
+                                                if (view.isPlaying && view.currentPosition >= eMs) {
+                                                    view.seekTo(sMs.coerceAtLeast(0).toInt())
+                                                }
+                                                view.postDelayed(this, 100)
+                                            } catch (_: Exception) {}
+                                        }
+                                    }, 100)
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .scale(videoScale)
                         )
-                    }
 
-                    // Mock Bottom Controls (to show how call looks)
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .padding(bottom = 24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Incoming Call",
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        if (answerStyle == "buttons") {
-                            Text(
-                                text = "Tap Accept to answer · Dismiss to reject",
-                                color = Color.White.copy(alpha = 0.8f),
-                                fontSize = 11.sp
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .background(Color(0xFFE53935), androidx.compose.foundation.shape.CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.PhoneInTalk, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
-                                }
-                                Box(
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .background(Color(0xFF4CAF50), androidx.compose.foundation.shape.CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.PhoneInTalk, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
-                                }
-                            }
-                        } else {
-                            Text(
-                                text = "Swipe to answer",
-                                color = Color.White.copy(alpha = 0.8f),
-                                fontSize = 11.sp
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            // Mock Swipe Button
+                        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                            val fullHeight = maxHeight
+                            // Draggable Caller Name Overlay (Full Screen)
                             Box(
                                 modifier = Modifier
-                                    .width(200.dp)
-                                    .height(56.dp)
-                                    .background(Color.White.copy(alpha = 0.3f), RoundedCornerShape(28.dp)),
-                                contentAlignment = Alignment.CenterStart
+                                    .align(Alignment.TopCenter)
+                                    .offset {
+                                        androidx.compose.ui.unit.IntOffset(
+                                            0,
+                                            (fullHeight.toPx() * namePositionY).roundToInt()
+                                        )
+                                    }
+                                    .pointerInput(Unit) {
+                                        detectVerticalDragGestures { change, dragAmount ->
+                                            change.consume()
+                                            val newY = namePositionY + (dragAmount / fullHeight.toPx())
+                                            namePositionY = newY.coerceIn(0f, 0.85f)
+                                        }
+                                    }
+                                    .background(Color(parsedBgColor), RoundedCornerShape(16.dp))
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .background(Color.White, androidx.compose.foundation.shape.CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Default.PhoneInTalk, contentDescription = null, tint = Color.Black)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Controls Area
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .verticalScroll(androidx.compose.foundation.rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Column {
-                        Text("Caller Name Font:", fontSize = 14.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("Sans-Serif", "Serif", "Monospace", "Cursive").forEach { font ->
-                                androidx.compose.material3.FilterChip(
-                                    selected = nameFontFamily.equals(font, ignoreCase = true),
-                                    onClick = { nameFontFamily = font.lowercase() },
-                                    label = { Text(font) }
+                                Text(
+                                    text = video.displayName,
+                                    color = Color(parsedTextColor),
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = nameFontSize.sp,
+                                    fontFamily = callerFontFamily
                                 )
                             }
                         }
-                    }
 
-                    Column {
-                        Text("Caller Name Size: ${nameFontSize.toInt()}sp", fontSize = 14.sp)
-                        androidx.compose.material3.Slider(
-                            value = nameFontSize,
-                            onValueChange = { nameFontSize = it },
-                            valueRange = 10f..40f
-                        )
-                    }
+                        // Bottom Controls Area
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .padding(bottom = 56.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Incoming Call",
+                                color = Color.White,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
+                            if (answerStyle == "buttons") {
+                                Text(
+                                    text = "Tap Accept to answer · Dismiss to reject",
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontSize = 13.sp
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RoundCallButton(
+                                        icon = Icons.Default.CallEnd,
+                                        contentDescription = "Dismiss call",
+                                        backgroundColor = Color(0xFFE53935),
+                                        onClick = { }
+                                    )
+                                    RoundCallButton(
+                                        icon = Icons.Default.Call,
+                                        contentDescription = "Accept call",
+                                        backgroundColor = Color(0xFF4CAF50),
+                                        onClick = { }
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = "Swipe to answer",
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    fontSize = 13.sp
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                SwipeToAnswerButton(onAccept = {}, onDismiss = {})
+                            }
+                        }
 
-                    Column {
-                        Text("Caller Name Position (or drag in preview):", fontSize = 14.sp)
-                        androidx.compose.material3.Slider(
-                            value = namePositionY,
-                            onValueChange = { namePositionY = it },
-                            valueRange = 0.0f..0.8f
-                        )
-                    }
-                    
-                    Column {
-                        Text("Answer Call Animation:", fontSize = 14.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            androidx.compose.material3.FilterChip(
-                                selected = answerStyle == "swipe",
-                                onClick = { answerStyle = "swipe" },
-                                label = { Text("Horizontal Swipe") }
-                            )
-                            androidx.compose.material3.FilterChip(
-                                selected = answerStyle == "buttons",
-                                onClick = { answerStyle = "buttons" },
-                                label = { Text("Two Buttons") }
-                            )
+                        // Close/Exit Floating Button at Top Left
+                        Button(
+                            onClick = { isFullPreview = false },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.Black.copy(alpha = 0.6f)),
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(16.dp)
+                        ) {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Default.Clear, contentDescription = "Exit Full Screen", modifier = Modifier.size(16.dp))
+                                Text("Exit Full Screen", fontSize = 12.sp)
+                            }
                         }
                     }
+                } else {
+                    // ==================== EDITOR SPLIT-SCREEN MODE ====================
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // Top Navigation / Save bar
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = onDismiss) { Text("Cancel") }
+                            Text("Edit Wallpaper", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                            TextButton(onClick = {
+                                val parsedStart = startMs.toLongOrNull()
+                                val parsedEnd = endMs.toLongOrNull()
+                                
+                                var finalAudioPath = video.customAudioPath
+                                if (customAudioUri != null) {
+                                    finalAudioPath = VideoLibraryManager.importAudioForVideo(context, customAudioUri!!)
+                                }
+                                
+                                val updatedVideo = video.copy(
+                                    trimStartMs = parsedStart,
+                                    trimEndMs = parsedEnd,
+                                    customAudioPath = finalAudioPath,
+                                    videoScale = videoScale,
+                                    namePositionY = namePositionY,
+                                    answerStyle = answerStyle,
+                                    nameFontSize = nameFontSize,
+                                    nameFontFamily = nameFontFamily,
+                                    nameTextColor = parsedTextColor,
+                                    nameBgColor = parsedBgColor
+                                )
+                                viewModel.updateSavedVideo(context, userEmail, updatedVideo)
+                                onDismiss()
+                            }) {
+                                Text("Save", fontWeight = FontWeight.Bold)
+                            }
+                        }
 
-                    Column {
-                        Text("Video Zoom: ${String.format(java.util.Locale.US, "%.1fx", videoScale)}", fontSize = 14.sp)
-                        androidx.compose.material3.Slider(
-                            value = videoScale,
-                            onValueChange = { videoScale = it },
-                            valueRange = 0.5f..3.0f
-                        )
-                    }
-                    
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        androidx.compose.material3.OutlinedTextField(
-                            value = startMs,
-                            onValueChange = { startMs = it },
-                            label = { Text("Start (ms)") },
-                            modifier = Modifier.weight(1f),
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
-                        )
-                        androidx.compose.material3.OutlinedTextField(
-                            value = endMs,
-                            onValueChange = { endMs = it },
-                            label = { Text("End (ms)") },
-                            modifier = Modifier.weight(1f),
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
-                        )
-                    }
+                        // High-Fidelity 9:16 Mockup Preview Frame
+                        BoxWithConstraints(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1.3f)
+                                .background(Color(0xFF0F0F14)) // Soft dark studio backdrop
+                                .padding(12.dp)
+                        ) {
+                            val containerWidth = maxWidth
+                            val containerHeight = maxHeight
+                            
+                            // Fit 9:16 phone card ratio precisely inside the allocated space
+                            val calculatedWidth = remember(containerWidth, containerHeight) {
+                                val widthBasedOnHeight = containerHeight * (9f / 16f)
+                                if (widthBasedOnHeight <= containerWidth) {
+                                    widthBasedOnHeight
+                                } else {
+                                    containerWidth
+                                }
+                            }
+                            val calculatedHeight = remember(calculatedWidth) {
+                                calculatedWidth * (16f / 9f)
+                            }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Custom Audio:", fontSize = 14.sp)
-                        Button(onClick = { audioPicker.launch(arrayOf("audio/*")) }) {
-                            Text(if (customAudioUri != null || video.customAudioPath != null) "Change Audio" else "Select Audio")
+                            Box(
+                                modifier = Modifier
+                                    .size(calculatedWidth, calculatedHeight)
+                                    .align(Alignment.Center)
+                                    .background(Color.Black)
+                                    .border(2.dp, Color(0xFF3A3A3C), RoundedCornerShape(24.dp))
+                                    .clip(RoundedCornerShape(24.dp))
+                            ) {
+                                // 1. Video content
+                                androidx.compose.ui.viewinterop.AndroidView(
+                                    factory = { ctx ->
+                                        android.widget.VideoView(ctx).apply {
+                                            setVideoURI(android.net.Uri.fromFile(File(video.localFilePath)))
+                                            setOnPreparedListener { mp ->
+                                                mp.isLooping = true
+                                                mp.setVolume(0f, 0f) // Mute preview so it doesn't disturb editing
+                                                val sMs = startMs.toLongOrNull() ?: 0L
+                                                if (sMs > 0) {
+                                                    mp.seekTo(sMs.toInt())
+                                                }
+                                                start()
+                                            }
+                                        }
+                                    },
+                                    update = { view ->
+                                        val sMs = startMs.toLongOrNull() ?: 0L
+                                        val eMs = endMs.toLongOrNull() ?: 0L
+                                        if (eMs > 0 && eMs > sMs) {
+                                            view.postDelayed(object : Runnable {
+                                                override fun run() {
+                                                    try {
+                                                        if (view.isPlaying && view.currentPosition >= eMs) {
+                                                            view.seekTo(sMs.coerceAtLeast(0).toInt())
+                                                        }
+                                                        view.postDelayed(this, 100)
+                                                    } catch (_: Exception) {}
+                                                }
+                                            }, 100)
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .scale(videoScale)
+                                )
+
+                                // 2. Interactive draggable caller name overlay
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.TopCenter)
+                                        .offset {
+                                            androidx.compose.ui.unit.IntOffset(
+                                                0,
+                                                (calculatedHeight.toPx() * namePositionY).roundToInt()
+                                            )
+                                        }
+                                        .pointerInput(Unit) {
+                                            detectVerticalDragGestures { change, dragAmount ->
+                                                change.consume()
+                                                val newY = namePositionY + (dragAmount / calculatedHeight.toPx())
+                                                namePositionY = newY.coerceIn(0f, 0.85f)
+                                            }
+                                        }
+                                        .background(Color(parsedBgColor), RoundedCornerShape(16.dp))
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = video.displayName,
+                                        color = Color(parsedTextColor),
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = (nameFontSize * 0.85f).sp, // Scaled for mockup
+                                        fontFamily = callerFontFamily,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                // 3. Incoming Call Header & Animated Buttons (Scaled for device mockup)
+                                Column(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .fillMaxWidth()
+                                        .padding(bottom = 16.dp)
+                                        .scale(0.7f), // Professional scaling to fit device frame perfectly
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "Incoming Call",
+                                        color = Color.White,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    
+                                    if (answerStyle == "buttons") {
+                                        Text(
+                                            text = "Tap Accept · Dismiss",
+                                            color = Color.White.copy(alpha = 0.8f),
+                                            fontSize = 10.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            RoundCallButton(
+                                                icon = Icons.Default.CallEnd,
+                                                contentDescription = "Dismiss call",
+                                                backgroundColor = Color(0xFFE53935),
+                                                onClick = { }
+                                            )
+                                            RoundCallButton(
+                                                icon = Icons.Default.Call,
+                                                contentDescription = "Accept call",
+                                                backgroundColor = Color(0xFF4CAF50),
+                                                onClick = { }
+                                            )
+                                        }
+                                    } else {
+                                        Text(
+                                            text = "Swipe to answer",
+                                            color = Color.White.copy(alpha = 0.8f),
+                                            fontSize = 10.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        SwipeToAnswerButton(onAccept = {}, onDismiss = {})
+                                    }
+                                }
+                            }
+
+                            // Full Screen mode launcher floating button
+                            Button(
+                                onClick = { isFullPreview = true },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Black.copy(alpha = 0.6f)),
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(8.dp)
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Text("Full Screen", fontSize = 11.sp)
+                                }
+                            }
+                        }
+
+                        // Controls Area
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            // Name Font Configuration
+                            Column {
+                                Text("Caller Name Font:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    listOf("Sans-Serif", "Serif", "Monospace", "Cursive").forEach { font ->
+                                        androidx.compose.material3.FilterChip(
+                                            selected = nameFontFamily.equals(font, ignoreCase = true),
+                                            onClick = { nameFontFamily = font.lowercase() },
+                                            label = { Text(font) }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Font size slider
+                            Column {
+                                Text("Caller Name Size: ${nameFontSize.toInt()}sp", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                androidx.compose.material3.Slider(
+                                    value = nameFontSize,
+                                    onValueChange = { nameFontSize = it },
+                                    valueRange = 10f..40f
+                                )
+                            }
+
+                            // Caller position slider
+                            Column {
+                                Text("Caller Name Position (or drag in preview):", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                androidx.compose.material3.Slider(
+                                    value = namePositionY,
+                                    onValueChange = { namePositionY = it },
+                                    valueRange = 0.0f..0.8f
+                                )
+                            }
+
+                            // Text color picker swatches (using beautiful, professional Google/Apple palette colors)
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Caller Name Text Color:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    val textPresets = listOf(
+                                        "#FFFFFF" to "White",
+                                        "#F5F5F7" to "Alabaster",
+                                        "#E6C79C" to "Gold",
+                                        "#E0F7FA" to "Ice",
+                                        "#FFD1DC" to "Rose",
+                                        "#E8F5E9" to "Mint"
+                                    )
+                                    textPresets.forEach { (hex, label) ->
+                                        val isSelected = selectedTextColorHex.equals(hex, ignoreCase = true)
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .background(Color(android.graphics.Color.parseColor(hex)), CircleShape)
+                                                .border(
+                                                    width = if (isSelected) 3.dp else 1.dp,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.3f),
+                                                    shape = CircleShape
+                                                )
+                                                .clickable { selectedTextColorHex = hex },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (isSelected) {
+                                                Icon(
+                                                    imageVector = Icons.Default.CheckCircle,
+                                                    contentDescription = "Selected",
+                                                    tint = if (hex.equals("#FFFFFF", ignoreCase = true) || hex.equals("#F5F5F7", ignoreCase = true) || hex.equals("#E0F7FA", ignoreCase = true)) Color.DarkGray else Color.White,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Background color picker swatches (incorporates None/Transparent option to eliminate black background)
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Caller Name Background Color:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    val bgPresets = listOf(
+                                        "transparent" to "None",
+                                        "#1C1C1E" to "Charcoal",
+                                        "#000000" to "Black",
+                                        "#2C3E50" to "Slate",
+                                        "#1E3A2F" to "Emerald",
+                                        "#1A1B2F" to "Navy",
+                                        "#2D1F1F" to "Burgundy"
+                                    )
+                                    bgPresets.forEach { (hex, label) ->
+                                        val isSelected = bgBaseColorHex.equals(hex, ignoreCase = true)
+                                        val isNone = hex == "transparent"
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .background(
+                                                    color = if (isNone) Color.Transparent else Color(android.graphics.Color.parseColor(hex)),
+                                                    shape = CircleShape
+                                                )
+                                                .border(
+                                                    width = if (isSelected) 3.dp else 1.dp,
+                                                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.3f),
+                                                    shape = CircleShape
+                                                )
+                                                .clickable {
+                                                    bgBaseColorHex = hex
+                                                    if (isNone) bgAlpha = 0f else if (bgAlpha == 0f) bgAlpha = 0.5f
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (isNone) {
+                                                androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+                                                    drawLine(
+                                                        color = Color.Red,
+                                                        start = androidx.compose.ui.geometry.Offset(0f, size.height),
+                                                        end = androidx.compose.ui.geometry.Offset(size.width, 0f),
+                                                        strokeWidth = 2.dp.toPx()
+                                                    )
+                                                }
+                                            }
+                                            if (isSelected) {
+                                                Icon(
+                                                    imageVector = Icons.Default.CheckCircle,
+                                                    contentDescription = "Selected",
+                                                    tint = if (isNone) Color.Red else Color.White,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Dynamic opacity slider, visible only when a background is active
+                            if (bgBaseColorHex != "transparent") {
+                                Column {
+                                    Text("Background Opacity: ${(bgAlpha * 100).roundToInt()}%", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                    androidx.compose.material3.Slider(
+                                        value = bgAlpha,
+                                        onValueChange = { bgAlpha = it },
+                                        valueRange = 0.0f..1.0f
+                                    )
+                                }
+                            }
+                            
+                            // Answer call interface selector
+                            Column {
+                                Text("Answer Call Interface:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                    androidx.compose.material3.FilterChip(
+                                        selected = answerStyle == "swipe",
+                                        onClick = { answerStyle = "swipe" },
+                                        label = { Text("Horizontal Swipe") }
+                                    )
+                                    androidx.compose.material3.FilterChip(
+                                        selected = answerStyle == "buttons",
+                                        onClick = { answerStyle = "buttons" },
+                                        label = { Text("Two Buttons") }
+                                    )
+                                }
+                            }
+
+                            // Zoom slider
+                            Column {
+                                Text("Video Zoom: ${String.format(java.util.Locale.US, "%.1fx", videoScale)}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                androidx.compose.material3.Slider(
+                                    value = videoScale,
+                                    onValueChange = { videoScale = it },
+                                    valueRange = 0.5f..3.0f
+                                )
+                            }
+                            
+                            // Trimming controls
+                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                androidx.compose.material3.OutlinedTextField(
+                                    value = startMs,
+                                    onValueChange = { startMs = it },
+                                    label = { Text("Start (ms)") },
+                                    modifier = Modifier.weight(1f),
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                                )
+                                androidx.compose.material3.OutlinedTextField(
+                                    value = endMs,
+                                    onValueChange = { endMs = it },
+                                    label = { Text("End (ms)") },
+                                    modifier = Modifier.weight(1f),
+                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                                )
+                            }
+
+                            // Custom Audio Picker
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Custom Audio:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Button(onClick = { audioPicker.launch(arrayOf("audio/*")) }) {
+                                    Text(if (customAudioUri != null || video.customAudioPath != null) "Change Audio" else "Select Audio")
+                                }
+                            }
                         }
                     }
                 }
