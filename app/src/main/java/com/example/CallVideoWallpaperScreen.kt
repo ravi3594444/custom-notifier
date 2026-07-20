@@ -329,6 +329,8 @@ fun CallVideoWallpaperScreen(
                                 if (video.answerStyle != null) putExtra(CallVideoActivity.EXTRA_ANSWER_STYLE, video.answerStyle)
                                 if (video.nameFontSize != null) putExtra(CallVideoActivity.EXTRA_NAME_FONT_SIZE, video.nameFontSize)
                                 if (video.nameFontFamily != null) putExtra(CallVideoActivity.EXTRA_NAME_FONT_FAMILY, video.nameFontFamily)
+                                if (video.nameTextColor != null) putExtra(CallVideoActivity.EXTRA_NAME_TEXT_COLOR, video.nameTextColor)
+                                if (video.nameBgColor != null) putExtra(CallVideoActivity.EXTRA_NAME_BG_COLOR, video.nameBgColor)
                             }
                             context.startActivity(intent)
                         },

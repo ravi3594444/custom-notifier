@@ -61,7 +61,11 @@ data class SavedVideo(
     /** Optional font size for the caller name in sp. */
     val nameFontSize: Float? = null,
     /** Optional font family for the caller name (e.g., "sans-serif", "serif", "monospace", "cursive"). */
-    val nameFontFamily: String? = null
+    val nameFontFamily: String? = null,
+    /** Optional ARGB color for the caller name text. */
+    val nameTextColor: Int? = null,
+    /** Optional ARGB color for the caller name background (can be transparent). */
+    val nameBgColor: Int? = null
 )
 
 /**

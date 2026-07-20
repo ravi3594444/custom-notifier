@@ -111,6 +111,8 @@ class CallVideoActivity : ComponentActivity() {
         const val EXTRA_ANSWER_STYLE = "extra_answer_style"
         const val EXTRA_NAME_FONT_SIZE = "extra_name_font_size"
         const val EXTRA_NAME_FONT_FAMILY = "extra_name_font_family"
+        const val EXTRA_NAME_TEXT_COLOR = "extra_name_text_color"
+        const val EXTRA_NAME_BG_COLOR = "extra_name_bg_color"
         private const val TAG = "CallVideoActivity"
     }
 
@@ -125,6 +127,8 @@ class CallVideoActivity : ComponentActivity() {
     private var answerStyle: String = "swipe"
     private var nameFontSize: Float = 15f
     private var nameFontFamily: String = "sans-serif"
+    private var nameTextColor: Int = android.graphics.Color.WHITE
+    private var nameBgColor: Int = android.graphics.Color.parseColor("#80000000")
     private var isPreviewMode: Boolean = false
     private var telephonyManager: TelephonyManager? = null
     private var phoneStateListener: android.telephony.PhoneStateListener? = null
@@ -193,6 +197,8 @@ class CallVideoActivity : ComponentActivity() {
         answerStyle = intent.getStringExtra(EXTRA_ANSWER_STYLE) ?: "swipe"
         nameFontSize = intent.getFloatExtra(EXTRA_NAME_FONT_SIZE, 15f)
         nameFontFamily = intent.getStringExtra(EXTRA_NAME_FONT_FAMILY) ?: "sans-serif"
+        nameTextColor = intent.getIntExtra(EXTRA_NAME_TEXT_COLOR, android.graphics.Color.WHITE)
+        nameBgColor = intent.getIntExtra(EXTRA_NAME_BG_COLOR, android.graphics.Color.parseColor("#80000000"))
 
         if (videoPath == null || !File(videoPath).exists()) {
             Log.e(TAG, "Video path missing or file does not exist: $videoPath")
@@ -245,6 +251,8 @@ class CallVideoActivity : ComponentActivity() {
                 answerStyle = answerStyle,
                 nameFontSize = nameFontSize,
                 nameFontFamily = nameFontFamily,
+                nameTextColor = nameTextColor,
+                nameBgColor = nameBgColor,
                 onAccept = {
                     if (isPreviewMode) {
                         finish()
@@ -308,6 +316,8 @@ private fun CallVideoScreen(
     answerStyle: String,
     nameFontSize: Float,
     nameFontFamily: String,
+    nameTextColor: Int,
+    nameBgColor: Int,
     onAccept: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -399,14 +409,14 @@ private fun CallVideoScreen(
                     .padding(top = screenHeight * namePositionY)
                     .align(Alignment.TopCenter)
                     .background(
-                        color = Color.Black.copy(alpha = 0.5f),
+                        color = Color(nameBgColor),
                         shape = RoundedCornerShape(16.dp)
                     )
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Text(
                     text = videoDisplayName,
-                    color = Color.White,
+                    color = Color(nameTextColor),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = nameFontSize.sp,
                     fontFamily = callerFontFamily
@@ -473,87 +483,6 @@ private fun CallVideoScreen(
             try {
                 videoViewRef?.stopPlayback()
             } catch (_: Exception) {}
-        }
-    }
-}
-
-@Composable
-private fun RoundCallButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    contentDescription: String,
-    backgroundColor: Color,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .size(72.dp)
-            .background(backgroundColor, CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = Color.White,
-            modifier = Modifier.size(36.dp)
-        )
-    }
-}
-
-@Composable
-private fun SwipeToAnswerButton(onAccept: () -> Unit, onDismiss: () -> Unit) {
-    val maxDrag = 100.dp
-    val maxDragPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxDrag.toPx() }
-    var offsetX by remember { mutableStateOf(0f) }
-
-    Box(
-        modifier = Modifier
-            .width(280.dp)
-            .height(72.dp)
-            .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(36.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        // Background icons
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Default.CallEnd, contentDescription = null, tint = Color(0xFFE53935))
-            Icon(Icons.Default.Call, contentDescription = null, tint = Color(0xFF4CAF50))
-        }
-
-        // Draggable pill
-        Box(
-            modifier = Modifier
-                .offset { androidx.compose.ui.unit.IntOffset(offsetX.roundToInt(), 0) }
-                .size(72.dp)
-                .background(Color.White, CircleShape)
-                .pointerInput(Unit) {
-                    detectHorizontalDragGestures(
-                        onDragEnd = {
-                            if (offsetX > maxDragPx * 0.7f) {
-                                onAccept()
-                            } else if (offsetX < -maxDragPx * 0.7f) {
-                                onDismiss()
-                            } else {
-                                offsetX = 0f
-                            }
-                        }
-                    ) { change, dragAmount ->
-                        change.consume()
-                        offsetX = (offsetX + dragAmount).coerceIn(-maxDragPx, maxDragPx)
-                    }
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Call,
-                contentDescription = "Swipe to Answer",
-                tint = if (offsetX < 0) Color(0xFFE53935) else if (offsetX > 0) Color(0xFF4CAF50) else Color.Black
-            )
         }
     }
 }
