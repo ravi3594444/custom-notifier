@@ -55,7 +55,9 @@ data class SavedVideo(
     /** Optional scale for the video playback (e.g. zoom in/out). */
     val videoScale: Float? = null,
     /** Optional position for the name from 0.0 (top) to 1.0 (bottom). */
-    val namePositionY: Float? = null
+    val namePositionY: Float? = null,
+    /** Optional answer style: "swipe" or "buttons". */
+    val answerStyle: String? = null
 )
 
 /**

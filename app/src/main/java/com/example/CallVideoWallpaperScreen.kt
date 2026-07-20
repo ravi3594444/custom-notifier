@@ -61,6 +61,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import java.io.File
+import kotlin.math.roundToInt
 import androidx.core.content.ContextCompat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -317,6 +326,7 @@ fun CallVideoWallpaperScreen(
                                 if (video.customAudioPath != null) putExtra(CallVideoActivity.EXTRA_CUSTOM_AUDIO_PATH, video.customAudioPath)
                                 if (video.videoScale != null) putExtra(CallVideoActivity.EXTRA_VIDEO_SCALE, video.videoScale)
                                 if (video.namePositionY != null) putExtra(CallVideoActivity.EXTRA_NAME_POSITION_Y, video.namePositionY)
+                                if (video.answerStyle != null) putExtra(CallVideoActivity.EXTRA_ANSWER_STYLE, video.answerStyle)
                             }
                             context.startActivity(intent)
                         },
@@ -619,6 +629,7 @@ private fun SavedVideoRow(
     }
 }
 
+
 @Composable
 fun VideoEditDialog(
     video: SavedVideo,
@@ -633,6 +644,7 @@ fun VideoEditDialog(
     var customAudioUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var videoScale by remember { mutableStateOf(video.videoScale ?: 1.0f) }
     var namePositionY by remember { mutableStateOf(video.namePositionY ?: 0.1f) }
+    var answerStyle by remember { mutableStateOf(video.answerStyle ?: "swipe") }
     
     val audioPicker = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
@@ -642,83 +654,191 @@ fun VideoEditDialog(
         }
     }
 
-    androidx.compose.material3.AlertDialog(
+    androidx.compose.ui.window.Dialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit Video Wallpaper") },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text("Trim Video (in milliseconds):")
-                androidx.compose.material3.OutlinedTextField(
-                    value = startMs,
-                    onValueChange = { startMs = it },
-                    label = { Text("Start Time (ms)") },
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
-                )
-                androidx.compose.material3.OutlinedTextField(
-                    value = endMs,
-                    onValueChange = { endMs = it },
-                    label = { Text("End Time (ms)") },
-                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
-                )
-                
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("Video Zoom/Scale: ${String.format(Locale.US, "%.1fx", videoScale)}")
-                androidx.compose.material3.Slider(
-                    value = videoScale,
-                    onValueChange = { videoScale = it },
-                    valueRange = 0.5f..3.0f
-                )
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        androidx.compose.material3.Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Top Bar
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    Text("Edit Wallpaper", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    TextButton(onClick = {
+                        val parsedStart = startMs.toLongOrNull()
+                        val parsedEnd = endMs.toLongOrNull()
+                        
+                        var finalAudioPath = video.customAudioPath
+                        if (customAudioUri != null) {
+                            finalAudioPath = VideoLibraryManager.importAudioForVideo(context, customAudioUri!!)
+                        }
+                        
+                        val updatedVideo = video.copy(
+                            trimStartMs = parsedStart,
+                            trimEndMs = parsedEnd,
+                            customAudioPath = finalAudioPath,
+                            videoScale = videoScale,
+                            namePositionY = namePositionY,
+                            answerStyle = answerStyle
+                        )
+                        viewModel.updateSavedVideo(context, userEmail, updatedVideo)
+                        onDismiss()
+                    }) {
+                        Text("Save")
+                    }
+                }
 
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("Caller Name Position (Top -> Bottom):")
-                androidx.compose.material3.Slider(
-                    value = namePositionY,
-                    onValueChange = { namePositionY = it },
-                    valueRange = 0.0f..0.8f
-                )
+                // Preview Area
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .background(Color.Black)
+                        .clipToBounds()
+                ) {
+                    val previewHeight = maxHeight
+                    
+                    // Video Player Preview
+                    androidx.compose.ui.viewinterop.AndroidView(
+                        factory = { ctx ->
+                            android.widget.VideoView(ctx).apply {
+                                setVideoURI(android.net.Uri.fromFile(File(video.localFilePath)))
+                                setOnPreparedListener { mp ->
+                                    mp.isLooping = true
+                                    mp.setVolume(0f, 0f) // Mute preview so it doesn't disturb editing
+                                    val sMs = startMs.toLongOrNull() ?: 0L
+                                    if (sMs > 0) {
+                                        mp.seekTo(sMs.toInt())
+                                    }
+                                    start()
+                                }
+                            }
+                        },
+                        update = { view ->
+                            val sMs = startMs.toLongOrNull() ?: 0L
+                            val eMs = endMs.toLongOrNull() ?: 0L
+                            if (eMs > 0 && eMs > sMs) {
+                                view.postDelayed(object : Runnable {
+                                    override fun run() {
+                                        try {
+                                            if (view.isPlaying && view.currentPosition >= eMs) {
+                                                view.seekTo(sMs.coerceAtLeast(0).toInt())
+                                            }
+                                            view.postDelayed(this, 100)
+                                        } catch (_: Exception) {}
+                                    }
+                                }, 100)
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .scale(videoScale)
+                    )
 
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Custom Audio Song:")
-                Button(onClick = { audioPicker.launch(arrayOf("audio/*")) }) {
-                    Text(if (customAudioUri != null || video.customAudioPath != null) "Change Audio" else "Select Audio")
+                    // Draggable Caller Name Overlay
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .offset { androidx.compose.ui.unit.IntOffset(0, (previewHeight.toPx() * namePositionY).roundToInt()) }
+                            .pointerInput(Unit) {
+                                detectVerticalDragGestures { change, dragAmount ->
+                                    change.consume()
+                                    val newY = namePositionY + (dragAmount / previewHeight.toPx())
+                                    namePositionY = newY.coerceIn(0f, 0.9f)
+                                }
+                            }
+                            .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = video.displayName,
+                            color = Color.White,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp
+                        )
+                    }
                 }
-                if (customAudioUri != null) {
-                    Text("New audio selected", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
-                } else if (video.customAudioPath != null) {
-                    Text("Has custom audio", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+
+                // Controls Area
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(350.dp)
+                        .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = startMs,
+                            onValueChange = { startMs = it },
+                            label = { Text("Start (ms)") },
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                        )
+                        androidx.compose.material3.OutlinedTextField(
+                            value = endMs,
+                            onValueChange = { endMs = it },
+                            label = { Text("End (ms)") },
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                        )
+                    }
+
+                    Column {
+                        Text("Video Zoom: ${String.format(java.util.Locale.US, "%.1fx", videoScale)}", fontSize = 14.sp)
+                        androidx.compose.material3.Slider(
+                            value = videoScale,
+                            onValueChange = { videoScale = it },
+                            valueRange = 0.5f..3.0f
+                        )
+                    }
+
+                    Column {
+                        Text("Caller Name Position (or drag in preview):", fontSize = 14.sp)
+                        androidx.compose.material3.Slider(
+                            value = namePositionY,
+                            onValueChange = { namePositionY = it },
+                            valueRange = 0.0f..0.8f
+                        )
+                    }
+                    
+                    Column {
+                        Text("Answer Call Animation:", fontSize = 14.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                            androidx.compose.material3.FilterChip(
+                                selected = answerStyle == "swipe",
+                                onClick = { answerStyle = "swipe" },
+                                label = { Text("Horizontal Swipe") }
+                            )
+                            androidx.compose.material3.FilterChip(
+                                selected = answerStyle == "buttons",
+                                onClick = { answerStyle = "buttons" },
+                                label = { Text("Two Buttons") }
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Custom Audio:", fontSize = 14.sp)
+                        Button(onClick = { audioPicker.launch(arrayOf("audio/*")) }) {
+                            Text(if (customAudioUri != null || video.customAudioPath != null) "Change Audio" else "Select Audio")
+                        }
+                    }
                 }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                val parsedStart = startMs.toLongOrNull()
-                val parsedEnd = endMs.toLongOrNull()
-                
-                var finalAudioPath = video.customAudioPath
-                if (customAudioUri != null) {
-                    finalAudioPath = VideoLibraryManager.importAudioForVideo(context, customAudioUri!!)
-                }
-                
-                val updatedVideo = video.copy(
-                    trimStartMs = parsedStart,
-                    trimEndMs = parsedEnd,
-                    customAudioPath = finalAudioPath,
-                    videoScale = videoScale,
-                    namePositionY = namePositionY
-                )
-                viewModel.updateSavedVideo(context, userEmail, updatedVideo)
-                onDismiss()
-            }) {
-                Text("Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
             }
         }
-    )
+    }
 }

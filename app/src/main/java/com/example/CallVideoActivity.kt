@@ -45,6 +45,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.viewinterop.AndroidView
 import java.io.File
 import androidx.compose.ui.draw.scale
@@ -106,6 +108,7 @@ class CallVideoActivity : ComponentActivity() {
         const val EXTRA_CUSTOM_AUDIO_PATH = "extra_custom_audio_path"
         const val EXTRA_VIDEO_SCALE = "extra_video_scale"
         const val EXTRA_NAME_POSITION_Y = "extra_name_position_y"
+        const val EXTRA_ANSWER_STYLE = "extra_answer_style"
         private const val TAG = "CallVideoActivity"
     }
 
@@ -117,6 +120,7 @@ class CallVideoActivity : ComponentActivity() {
     private var customAudioPath: String? = null
     private var videoScale: Float = 1.0f
     private var namePositionY: Float = 0.1f // Default near top
+    private var answerStyle: String = "swipe"
     private var isPreviewMode: Boolean = false
     private var telephonyManager: TelephonyManager? = null
     private var phoneStateListener: android.telephony.PhoneStateListener? = null
@@ -182,6 +186,7 @@ class CallVideoActivity : ComponentActivity() {
         customAudioPath = intent.getStringExtra(EXTRA_CUSTOM_AUDIO_PATH)
         videoScale = intent.getFloatExtra(EXTRA_VIDEO_SCALE, 1.0f)
         namePositionY = intent.getFloatExtra(EXTRA_NAME_POSITION_Y, 0.1f)
+        answerStyle = intent.getStringExtra(EXTRA_ANSWER_STYLE) ?: "swipe"
 
         if (videoPath == null || !File(videoPath).exists()) {
             Log.e(TAG, "Video path missing or file does not exist: $videoPath")
@@ -231,6 +236,7 @@ class CallVideoActivity : ComponentActivity() {
                 customAudioPath = customAudioPath,
                 videoScale = videoScale,
                 namePositionY = namePositionY,
+                answerStyle = answerStyle,
                 onAccept = {
                     if (isPreviewMode) {
                         finish()
@@ -291,6 +297,7 @@ private fun CallVideoScreen(
     customAudioPath: String?,
     videoScale: Float,
     namePositionY: Float,
+    answerStyle: String,
     onAccept: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -402,7 +409,41 @@ private fun CallVideoScreen(
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(16.dp))
-            SwipeToAnswerButton(onAccept = onAccept, onDismiss = onDismiss)
+            
+            if (answerStyle == "buttons") {
+                Text(
+                    text = "Tap Accept to answer · Dismiss to reject",
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RoundCallButton(
+                        icon = Icons.Default.CallEnd,
+                        contentDescription = "Dismiss call",
+                        backgroundColor = Color(0xFFE53935),
+                        onClick = onDismiss
+                    )
+                    RoundCallButton(
+                        icon = Icons.Default.Call,
+                        contentDescription = "Accept call",
+                        backgroundColor = Color(0xFF4CAF50),
+                        onClick = onAccept
+                    )
+                }
+            } else {
+                Text(
+                    text = "Swipe to answer",
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 13.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                SwipeToAnswerButton(onAccept = onAccept, onDismiss = onDismiss)
+            }
         }
     }
 
@@ -413,6 +454,29 @@ private fun CallVideoScreen(
                 videoViewRef?.stopPlayback()
             } catch (_: Exception) {}
         }
+    }
+}
+
+@Composable
+private fun RoundCallButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    backgroundColor: Color,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(72.dp)
+            .background(backgroundColor, CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = Color.White,
+            modifier = Modifier.size(36.dp)
+        )
     }
 }
 
