@@ -303,6 +303,16 @@ fun CallVideoWallpaperScreen(
                         onPreviewToggle = {
                             viewModel.toggleVideoPreview(context, video)
                         },
+                        onTestCall = {
+                            viewModel.stopVideoPreview()
+                            val intent = android.content.Intent(context, CallVideoActivity::class.java).apply {
+                                putExtra(CallVideoActivity.EXTRA_VIDEO_PATH, video.localFilePath)
+                                putExtra(CallVideoActivity.EXTRA_VIDEO_DISPLAY_NAME, video.displayName)
+                                putExtra(CallVideoActivity.EXTRA_VIDEO_MIME_TYPE, video.mimeType)
+                                putExtra(CallVideoActivity.EXTRA_IS_PREVIEW_MODE, true)
+                            }
+                            context.startActivity(intent)
+                        },
                         onSetActive = {
                             viewModel.stopVideoPreview()
                             viewModel.setActiveVideo(context, userEmail, video)
@@ -407,6 +417,7 @@ private fun SavedVideoRow(
     isPreviewing: Boolean,
     isProcessing: Boolean,
     onPreviewToggle: () -> Unit,
+    onTestCall: () -> Unit,
     onSetActive: () -> Unit,
     onClearActive: () -> Unit,
     onDelete: () -> Unit
@@ -535,12 +546,24 @@ private fun SavedVideoRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                OutlinedButton(
+                    onClick = onTestCall,
+                    modifier = Modifier.weight(1f).height(44.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    enabled = !isProcessing
+                ) {
+                    Text("Test Call", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+                
                 if (isActive) {
                     OutlinedButton(
                         onClick = onClearActive,
                         modifier = Modifier.weight(1f).height(44.dp),
                         shape = RoundedCornerShape(10.dp),
-                        enabled = !isProcessing
+                        enabled = !isProcessing,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
                     ) {
                         Text("Clear Active", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
@@ -560,7 +583,7 @@ private fun SavedVideoRow(
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Set as Call Video", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Set as Call Video", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }

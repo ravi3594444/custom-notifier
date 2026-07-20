@@ -93,48 +93,51 @@ class CallVideoActivity : ComponentActivity() {
         const val EXTRA_VIDEO_PATH = "extra_video_path"
         const val EXTRA_VIDEO_DISPLAY_NAME = "extra_video_display_name"
         const val EXTRA_VIDEO_MIME_TYPE = "extra_video_mime_type"
+        const val EXTRA_IS_PREVIEW_MODE = "extra_is_preview_mode"
         private const val TAG = "CallVideoActivity"
     }
 
     private var videoPath: String? = null
     private var videoDisplayName: String? = null
     private var videoMimeType: String? = null
+    private var isPreviewMode: Boolean = false
     private var telephonyManager: TelephonyManager? = null
     private var phoneStateListener: android.telephony.PhoneStateListener? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        isPreviewMode = intent.getBooleanExtra(EXTRA_IS_PREVIEW_MODE, false)
+
         // --- Lockscreen / wake flags --------------------------------------
         // Show over the lockscreen and turn the screen on when the activity
         // starts. These flags work on API 24+ (our minSdk).
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
-        } else {
-            @Suppress("DEPRECATION")
-            window.addFlags(
-                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-                WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
-                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
-                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
-            )
-        }
-        // Keep the screen on while the call is ringing.
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-
-        // Dismiss the keyguard so the user can tap Accept/Dismiss without
-        // first unlocking the phone. This requests dismissal but doesn't
-        // require an unlock (for non-secure lockscreens it just dismisses;
-        // for secure ones, the user still has to authenticate before they
-        // can answer the call — which is the secure default behavior).
-        try {
-            val keyguardMgr = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                keyguardMgr.requestDismissKeyguard(this, null)
+        if (!isPreviewMode) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+                setShowWhenLocked(true)
+                setTurnScreenOn(true)
+            } else {
+                @Suppress("DEPRECATION")
+                window.addFlags(
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                )
             }
-        } catch (e: Exception) {
-            Log.w(TAG, "Could not request keyguard dismissal", e)
+            // Keep the screen on while the call is ringing.
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+            // Dismiss the keyguard so the user can tap Accept/Dismiss without
+            // first unlocking the phone.
+            try {
+                val keyguardMgr = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    keyguardMgr.requestDismissKeyguard(this, null)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not request keyguard dismissal", e)
+            }
         }
 
         // --- Hide system UI for a true "wallpaper" feel -------------------
@@ -165,31 +168,33 @@ class CallVideoActivity : ComponentActivity() {
         }
 
         // --- PhoneStateListener: auto-finish when call ends --------------
-        telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-        phoneStateListener = object : android.telephony.PhoneStateListener() {
-            override fun onCallStateChanged(state: Int, phoneNumber: String?) {
-                when (state) {
-                    TelephonyManager.CALL_STATE_OFFHOOK -> {
-                        // Call was answered (either via our Accept button or
-                        // via the system call screen). Dismiss the video so
-                        // the system in-call UI can take over.
-                        Log.d(TAG, "Call answered (OFFHOOK) — finishing activity.")
-                        finish()
+        if (!isPreviewMode) {
+            telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+            phoneStateListener = object : android.telephony.PhoneStateListener() {
+                override fun onCallStateChanged(state: Int, phoneNumber: String?) {
+                    when (state) {
+                        TelephonyManager.CALL_STATE_OFFHOOK -> {
+                            // Call was answered (either via our Accept button or
+                            // via the system call screen). Dismiss the video so
+                            // the system in-call UI can take over.
+                            Log.d(TAG, "Call answered (OFFHOOK) — finishing activity.")
+                            finish()
+                        }
+                        TelephonyManager.CALL_STATE_IDLE -> {
+                            // Call ended / rejected / caller hung up. Dismiss.
+                            Log.d(TAG, "Call ended (IDLE) — finishing activity.")
+                            finish()
+                        }
+                        // CALL_STATE_RINGING: still ringing — do nothing.
                     }
-                    TelephonyManager.CALL_STATE_IDLE -> {
-                        // Call ended / rejected / caller hung up. Dismiss.
-                        Log.d(TAG, "Call ended (IDLE) — finishing activity.")
-                        finish()
-                    }
-                    // CALL_STATE_RINGING: still ringing — do nothing.
                 }
             }
-        }
-        try {
-            @Suppress("DEPRECATION")
-            telephonyManager?.listen(phoneStateListener, android.telephony.PhoneStateListener.LISTEN_CALL_STATE)
-        } catch (e: SecurityException) {
-            Log.w(TAG, "Cannot listen to phone state (READ_PHONE_STATE missing?)", e)
+            try {
+                @Suppress("DEPRECATION")
+                telephonyManager?.listen(phoneStateListener, android.telephony.PhoneStateListener.LISTEN_CALL_STATE)
+            } catch (e: SecurityException) {
+                Log.w(TAG, "Cannot listen to phone state (READ_PHONE_STATE missing?)", e)
+            }
         }
 
         // --- Render Compose UI --------------------------------------------
@@ -200,20 +205,28 @@ class CallVideoActivity : ComponentActivity() {
                 videoPath = path,
                 videoDisplayName = name,
                 onAccept = {
-                    val ok = CallVideoController.answerCall(this)
-                    if (!ok) {
-                        // Fallback: open the system call screen so the user
-                        // can answer there.
-                        CallVideoController.openSystemCallScreen(this)
+                    if (isPreviewMode) {
+                        finish()
+                    } else {
+                        val ok = CallVideoController.answerCall(this)
+                        if (!ok) {
+                            // Fallback: open the system call screen so the user
+                            // can answer there.
+                            CallVideoController.openSystemCallScreen(this)
+                        }
+                        finish()
                     }
-                    finish()
                 },
                 onDismiss = {
-                    val ok = CallVideoController.rejectCall(this)
-                    if (!ok) {
-                        CallVideoController.openSystemCallScreen(this)
+                    if (isPreviewMode) {
+                        finish()
+                    } else {
+                        val ok = CallVideoController.rejectCall(this)
+                        if (!ok) {
+                            CallVideoController.openSystemCallScreen(this)
+                        }
+                        finish()
                     }
-                    finish()
                 }
             )
         }
