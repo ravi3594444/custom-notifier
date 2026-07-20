@@ -57,7 +57,11 @@ data class SavedVideo(
     /** Optional position for the name from 0.0 (top) to 1.0 (bottom). */
     val namePositionY: Float? = null,
     /** Optional answer style: "swipe" or "buttons". */
-    val answerStyle: String? = null
+    val answerStyle: String? = null,
+    /** Optional font size for the caller name in sp. */
+    val nameFontSize: Float? = null,
+    /** Optional font family for the caller name (e.g., "sans-serif", "serif", "monospace", "cursive"). */
+    val nameFontFamily: String? = null
 )
 
 /**

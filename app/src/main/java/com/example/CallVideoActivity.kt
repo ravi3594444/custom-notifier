@@ -109,6 +109,8 @@ class CallVideoActivity : ComponentActivity() {
         const val EXTRA_VIDEO_SCALE = "extra_video_scale"
         const val EXTRA_NAME_POSITION_Y = "extra_name_position_y"
         const val EXTRA_ANSWER_STYLE = "extra_answer_style"
+        const val EXTRA_NAME_FONT_SIZE = "extra_name_font_size"
+        const val EXTRA_NAME_FONT_FAMILY = "extra_name_font_family"
         private const val TAG = "CallVideoActivity"
     }
 
@@ -121,6 +123,8 @@ class CallVideoActivity : ComponentActivity() {
     private var videoScale: Float = 1.0f
     private var namePositionY: Float = 0.1f // Default near top
     private var answerStyle: String = "swipe"
+    private var nameFontSize: Float = 15f
+    private var nameFontFamily: String = "sans-serif"
     private var isPreviewMode: Boolean = false
     private var telephonyManager: TelephonyManager? = null
     private var phoneStateListener: android.telephony.PhoneStateListener? = null
@@ -187,6 +191,8 @@ class CallVideoActivity : ComponentActivity() {
         videoScale = intent.getFloatExtra(EXTRA_VIDEO_SCALE, 1.0f)
         namePositionY = intent.getFloatExtra(EXTRA_NAME_POSITION_Y, 0.1f)
         answerStyle = intent.getStringExtra(EXTRA_ANSWER_STYLE) ?: "swipe"
+        nameFontSize = intent.getFloatExtra(EXTRA_NAME_FONT_SIZE, 15f)
+        nameFontFamily = intent.getStringExtra(EXTRA_NAME_FONT_FAMILY) ?: "sans-serif"
 
         if (videoPath == null || !File(videoPath).exists()) {
             Log.e(TAG, "Video path missing or file does not exist: $videoPath")
@@ -237,6 +243,8 @@ class CallVideoActivity : ComponentActivity() {
                 videoScale = videoScale,
                 namePositionY = namePositionY,
                 answerStyle = answerStyle,
+                nameFontSize = nameFontSize,
+                nameFontFamily = nameFontFamily,
                 onAccept = {
                     if (isPreviewMode) {
                         finish()
@@ -298,10 +306,21 @@ private fun CallVideoScreen(
     videoScale: Float,
     namePositionY: Float,
     answerStyle: String,
+    nameFontSize: Float,
+    nameFontFamily: String,
     onAccept: () -> Unit,
     onDismiss: () -> Unit
 ) {
     var videoViewRef by remember { mutableStateOf<VideoView?>(null) }
+    
+    val callerFontFamily = remember(nameFontFamily) {
+        when (nameFontFamily.lowercase()) {
+            "serif" -> androidx.compose.ui.text.font.FontFamily.Serif
+            "monospace" -> androidx.compose.ui.text.font.FontFamily.Monospace
+            "cursive" -> androidx.compose.ui.text.font.FontFamily.Cursive
+            else -> androidx.compose.ui.text.font.FontFamily.SansSerif
+        }
+    }
     
     // Manage custom audio playback
     DisposableEffect(customAudioPath) {
@@ -389,7 +408,8 @@ private fun CallVideoScreen(
                     text = videoDisplayName,
                     color = Color.White,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp
+                    fontSize = nameFontSize.sp,
+                    fontFamily = callerFontFamily
                 )
             }
         }

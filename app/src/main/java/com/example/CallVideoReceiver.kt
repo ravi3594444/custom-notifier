@@ -78,6 +78,8 @@ class CallVideoReceiver : BroadcastReceiver() {
                 if (activeVideo.videoScale != null) putExtra(CallVideoActivity.EXTRA_VIDEO_SCALE, activeVideo.videoScale)
                 if (activeVideo.namePositionY != null) putExtra(CallVideoActivity.EXTRA_NAME_POSITION_Y, activeVideo.namePositionY)
                 if (activeVideo.answerStyle != null) putExtra(CallVideoActivity.EXTRA_ANSWER_STYLE, activeVideo.answerStyle)
+                if (activeVideo.nameFontSize != null) putExtra(CallVideoActivity.EXTRA_NAME_FONT_SIZE, activeVideo.nameFontSize)
+                if (activeVideo.nameFontFamily != null) putExtra(CallVideoActivity.EXTRA_NAME_FONT_FAMILY, activeVideo.nameFontFamily)
             }
             context.startActivity(launchIntent)
             Log.d(TAG, "Launched CallVideoActivity for video: ${activeVideo.displayName}")

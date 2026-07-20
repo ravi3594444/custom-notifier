@@ -327,6 +327,8 @@ fun CallVideoWallpaperScreen(
                                 if (video.videoScale != null) putExtra(CallVideoActivity.EXTRA_VIDEO_SCALE, video.videoScale)
                                 if (video.namePositionY != null) putExtra(CallVideoActivity.EXTRA_NAME_POSITION_Y, video.namePositionY)
                                 if (video.answerStyle != null) putExtra(CallVideoActivity.EXTRA_ANSWER_STYLE, video.answerStyle)
+                                if (video.nameFontSize != null) putExtra(CallVideoActivity.EXTRA_NAME_FONT_SIZE, video.nameFontSize)
+                                if (video.nameFontFamily != null) putExtra(CallVideoActivity.EXTRA_NAME_FONT_FAMILY, video.nameFontFamily)
                             }
                             context.startActivity(intent)
                         },
@@ -629,7 +631,6 @@ private fun SavedVideoRow(
     }
 }
 
-
 @Composable
 fun VideoEditDialog(
     video: SavedVideo,
@@ -645,12 +646,23 @@ fun VideoEditDialog(
     var videoScale by remember { mutableStateOf(video.videoScale ?: 1.0f) }
     var namePositionY by remember { mutableStateOf(video.namePositionY ?: 0.1f) }
     var answerStyle by remember { mutableStateOf(video.answerStyle ?: "swipe") }
+    var nameFontSize by remember { mutableStateOf(video.nameFontSize ?: 15f) }
+    var nameFontFamily by remember { mutableStateOf(video.nameFontFamily ?: "sans-serif") }
     
     val audioPicker = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
             customAudioUri = uri
+        }
+    }
+
+    val callerFontFamily = remember(nameFontFamily) {
+        when (nameFontFamily.lowercase()) {
+            "serif" -> androidx.compose.ui.text.font.FontFamily.Serif
+            "monospace" -> androidx.compose.ui.text.font.FontFamily.Monospace
+            "cursive" -> androidx.compose.ui.text.font.FontFamily.Cursive
+            else -> androidx.compose.ui.text.font.FontFamily.SansSerif
         }
     }
 
@@ -686,7 +698,9 @@ fun VideoEditDialog(
                             customAudioPath = finalAudioPath,
                             videoScale = videoScale,
                             namePositionY = namePositionY,
-                            answerStyle = answerStyle
+                            answerStyle = answerStyle,
+                            nameFontSize = nameFontSize,
+                            nameFontFamily = nameFontFamily
                         )
                         viewModel.updateSavedVideo(context, userEmail, updatedVideo)
                         onDismiss()
@@ -699,7 +713,7 @@ fun VideoEditDialog(
                 BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f)
+                        .weight(1.2f)
                         .background(Color.Black)
                         .clipToBounds()
                 ) {
@@ -761,8 +775,81 @@ fun VideoEditDialog(
                             text = video.displayName,
                             color = Color.White,
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 15.sp
+                            fontSize = nameFontSize.sp,
+                            fontFamily = callerFontFamily
                         )
+                    }
+
+                    // Mock Bottom Controls (to show how call looks)
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(bottom = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Incoming Call",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        if (answerStyle == "buttons") {
+                            Text(
+                                text = "Tap Accept to answer · Dismiss to reject",
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 11.sp
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .background(Color(0xFFE53935), androidx.compose.foundation.shape.CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.PhoneInTalk, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .background(Color(0xFF4CAF50), androidx.compose.foundation.shape.CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.PhoneInTalk, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = "Swipe to answer",
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 11.sp
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            // Mock Swipe Button
+                            Box(
+                                modifier = Modifier
+                                    .width(200.dp)
+                                    .height(56.dp)
+                                    .background(Color.White.copy(alpha = 0.3f), RoundedCornerShape(28.dp)),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .background(Color.White, androidx.compose.foundation.shape.CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.PhoneInTalk, contentDescription = null, tint = Color.Black)
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -770,34 +857,31 @@ fun VideoEditDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(350.dp)
+                        .weight(1f)
                         .verticalScroll(androidx.compose.foundation.rememberScrollState())
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        androidx.compose.material3.OutlinedTextField(
-                            value = startMs,
-                            onValueChange = { startMs = it },
-                            label = { Text("Start (ms)") },
-                            modifier = Modifier.weight(1f),
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
-                        )
-                        androidx.compose.material3.OutlinedTextField(
-                            value = endMs,
-                            onValueChange = { endMs = it },
-                            label = { Text("End (ms)") },
-                            modifier = Modifier.weight(1f),
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
-                        )
+                    Column {
+                        Text("Caller Name Font:", fontSize = 14.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("Sans-Serif", "Serif", "Monospace", "Cursive").forEach { font ->
+                                androidx.compose.material3.FilterChip(
+                                    selected = nameFontFamily.equals(font, ignoreCase = true),
+                                    onClick = { nameFontFamily = font.lowercase() },
+                                    label = { Text(font) }
+                                )
+                            }
+                        }
                     }
 
                     Column {
-                        Text("Video Zoom: ${String.format(java.util.Locale.US, "%.1fx", videoScale)}", fontSize = 14.sp)
+                        Text("Caller Name Size: ${nameFontSize.toInt()}sp", fontSize = 14.sp)
                         androidx.compose.material3.Slider(
-                            value = videoScale,
-                            onValueChange = { videoScale = it },
-                            valueRange = 0.5f..3.0f
+                            value = nameFontSize,
+                            onValueChange = { nameFontSize = it },
+                            valueRange = 10f..40f
                         )
                     }
 
@@ -825,6 +909,32 @@ fun VideoEditDialog(
                                 label = { Text("Two Buttons") }
                             )
                         }
+                    }
+
+                    Column {
+                        Text("Video Zoom: ${String.format(java.util.Locale.US, "%.1fx", videoScale)}", fontSize = 14.sp)
+                        androidx.compose.material3.Slider(
+                            value = videoScale,
+                            onValueChange = { videoScale = it },
+                            valueRange = 0.5f..3.0f
+                        )
+                    }
+                    
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = startMs,
+                            onValueChange = { startMs = it },
+                            label = { Text("Start (ms)") },
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                        )
+                        androidx.compose.material3.OutlinedTextField(
+                            value = endMs,
+                            onValueChange = { endMs = it },
+                            label = { Text("End (ms)") },
+                            modifier = Modifier.weight(1f),
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                        )
                     }
 
                     Row(
