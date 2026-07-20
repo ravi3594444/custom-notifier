@@ -75,6 +75,8 @@ class CallVideoReceiver : BroadcastReceiver() {
                 if (activeVideo.trimStartMs != null) putExtra(CallVideoActivity.EXTRA_TRIM_START_MS, activeVideo.trimStartMs)
                 if (activeVideo.trimEndMs != null) putExtra(CallVideoActivity.EXTRA_TRIM_END_MS, activeVideo.trimEndMs)
                 if (activeVideo.customAudioPath != null) putExtra(CallVideoActivity.EXTRA_CUSTOM_AUDIO_PATH, activeVideo.customAudioPath)
+                if (activeVideo.videoScale != null) putExtra(CallVideoActivity.EXTRA_VIDEO_SCALE, activeVideo.videoScale)
+                if (activeVideo.namePositionY != null) putExtra(CallVideoActivity.EXTRA_NAME_POSITION_Y, activeVideo.namePositionY)
             }
             context.startActivity(launchIntent)
             Log.d(TAG, "Launched CallVideoActivity for video: ${activeVideo.displayName}")

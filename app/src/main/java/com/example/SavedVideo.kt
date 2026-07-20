@@ -51,7 +51,11 @@ data class SavedVideo(
     /** Optional end time for video trimming in milliseconds. */
     val trimEndMs: Long? = null,
     /** Optional local file path to a custom audio song to play instead of the video's audio. */
-    val customAudioPath: String? = null
+    val customAudioPath: String? = null,
+    /** Optional scale for the video playback (e.g. zoom in/out). */
+    val videoScale: Float? = null,
+    /** Optional position for the name from 0.0 (top) to 1.0 (bottom). */
+    val namePositionY: Float? = null
 )
 
 /**

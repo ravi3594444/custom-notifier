@@ -47,6 +47,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import java.io.File
+import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.input.pointer.pointerInput
+import kotlin.math.roundToInt
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 
 /**
  * Full-screen Activity that plays the user's chosen video when an incoming
@@ -97,6 +104,8 @@ class CallVideoActivity : ComponentActivity() {
         const val EXTRA_TRIM_START_MS = "extra_trim_start_ms"
         const val EXTRA_TRIM_END_MS = "extra_trim_end_ms"
         const val EXTRA_CUSTOM_AUDIO_PATH = "extra_custom_audio_path"
+        const val EXTRA_VIDEO_SCALE = "extra_video_scale"
+        const val EXTRA_NAME_POSITION_Y = "extra_name_position_y"
         private const val TAG = "CallVideoActivity"
     }
 
@@ -106,6 +115,8 @@ class CallVideoActivity : ComponentActivity() {
     private var trimStartMs: Long = -1L
     private var trimEndMs: Long = -1L
     private var customAudioPath: String? = null
+    private var videoScale: Float = 1.0f
+    private var namePositionY: Float = 0.1f // Default near top
     private var isPreviewMode: Boolean = false
     private var telephonyManager: TelephonyManager? = null
     private var phoneStateListener: android.telephony.PhoneStateListener? = null
@@ -169,6 +180,8 @@ class CallVideoActivity : ComponentActivity() {
         trimStartMs = intent.getLongExtra(EXTRA_TRIM_START_MS, -1L)
         trimEndMs = intent.getLongExtra(EXTRA_TRIM_END_MS, -1L)
         customAudioPath = intent.getStringExtra(EXTRA_CUSTOM_AUDIO_PATH)
+        videoScale = intent.getFloatExtra(EXTRA_VIDEO_SCALE, 1.0f)
+        namePositionY = intent.getFloatExtra(EXTRA_NAME_POSITION_Y, 0.1f)
 
         if (videoPath == null || !File(videoPath).exists()) {
             Log.e(TAG, "Video path missing or file does not exist: $videoPath")
@@ -216,6 +229,8 @@ class CallVideoActivity : ComponentActivity() {
                 trimStartMs = trimStartMs,
                 trimEndMs = trimEndMs,
                 customAudioPath = customAudioPath,
+                videoScale = videoScale,
+                namePositionY = namePositionY,
                 onAccept = {
                     if (isPreviewMode) {
                         finish()
@@ -274,6 +289,8 @@ private fun CallVideoScreen(
     trimStartMs: Long,
     trimEndMs: Long,
     customAudioPath: String?,
+    videoScale: Float,
+    namePositionY: Float,
     onAccept: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -345,26 +362,29 @@ private fun CallVideoScreen(
                     }, 100)
                 }
             },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize().scale(videoScale)
         )
 
-        // --- Display-name chip at the top --------------------------------
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 48.dp)
-                .background(
-                    color = Color.Black.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(16.dp)
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val screenHeight = maxHeight
+            // --- Display-name chip at the top --------------------------------
+            Box(
+                modifier = Modifier
+                    .padding(top = screenHeight * namePositionY)
+                    .align(Alignment.TopCenter)
+                    .background(
+                        color = Color.Black.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = videoDisplayName,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp
                 )
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-        ) {
-            Text(
-                text = videoDisplayName,
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp
-            )
+            }
         }
 
         // --- Caller label above the buttons ------------------------------
@@ -381,41 +401,8 @@ private fun CallVideoScreen(
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "Tap Accept to answer · Dismiss to reject",
-                color = Color.White.copy(alpha = 0.8f),
-                fontSize = 13.sp
-            )
-        }
-
-        // --- Accept / Dismiss buttons ------------------------------------
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(bottom = 96.dp, start = 32.dp, end = 32.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Dismiss (red, left)
-            RoundCallButton(
-                icon = Icons.Default.CallEnd,
-                contentDescription = "Dismiss call",
-                backgroundColor = Color(0xFFE53935),
-                onClick = onDismiss
-            )
-
-            // Spacer in the middle to push them apart
-            Spacer(modifier = Modifier.width(120.dp))
-
-            // Accept (green, right)
-            RoundCallButton(
-                icon = Icons.Default.Call,
-                contentDescription = "Accept call",
-                backgroundColor = Color(0xFF4CAF50),
-                onClick = onAccept
-            )
+            Spacer(modifier = Modifier.height(16.dp))
+            SwipeToAnswerButton(onAccept = onAccept, onDismiss = onDismiss)
         }
     }
 
@@ -430,29 +417,60 @@ private fun CallVideoScreen(
 }
 
 @Composable
-private fun RoundCallButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    contentDescription: String,
-    backgroundColor: Color,
-    onClick: () -> Unit
-) {
-    val interactionSource = remember { MutableInteractionSource() }
+private fun SwipeToAnswerButton(onAccept: () -> Unit, onDismiss: () -> Unit) {
+    val maxDrag = 100.dp
+    val maxDragPx = with(androidx.compose.ui.platform.LocalDensity.current) { maxDrag.toPx() }
+    var offsetX by remember { mutableStateOf(0f) }
+
     Box(
         modifier = Modifier
-            .size(72.dp)
-            .background(backgroundColor, CircleShape)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick
-            ),
+            .width(280.dp)
+            .height(72.dp)
+            .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(36.dp)),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = Color.White,
-            modifier = Modifier.size(36.dp)
-        )
+        // Background icons
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.CallEnd, contentDescription = null, tint = Color(0xFFE53935))
+            Icon(Icons.Default.Call, contentDescription = null, tint = Color(0xFF4CAF50))
+        }
+
+        // Draggable pill
+        Box(
+            modifier = Modifier
+                .offset { androidx.compose.ui.unit.IntOffset(offsetX.roundToInt(), 0) }
+                .size(72.dp)
+                .background(Color.White, CircleShape)
+                .pointerInput(Unit) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            if (offsetX > maxDragPx * 0.7f) {
+                                onAccept()
+                            } else if (offsetX < -maxDragPx * 0.7f) {
+                                onDismiss()
+                            } else {
+                                offsetX = 0f
+                            }
+                        }
+                    ) { change, dragAmount ->
+                        change.consume()
+                        offsetX = (offsetX + dragAmount).coerceIn(-maxDragPx, maxDragPx)
+                    }
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Call,
+                contentDescription = "Swipe to Answer",
+                tint = if (offsetX < 0) Color(0xFFE53935) else if (offsetX > 0) Color(0xFF4CAF50) else Color.Black
+            )
+        }
     }
 }
+

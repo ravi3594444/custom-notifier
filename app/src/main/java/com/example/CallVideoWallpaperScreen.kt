@@ -315,6 +315,8 @@ fun CallVideoWallpaperScreen(
                                 if (video.trimStartMs != null) putExtra(CallVideoActivity.EXTRA_TRIM_START_MS, video.trimStartMs)
                                 if (video.trimEndMs != null) putExtra(CallVideoActivity.EXTRA_TRIM_END_MS, video.trimEndMs)
                                 if (video.customAudioPath != null) putExtra(CallVideoActivity.EXTRA_CUSTOM_AUDIO_PATH, video.customAudioPath)
+                                if (video.videoScale != null) putExtra(CallVideoActivity.EXTRA_VIDEO_SCALE, video.videoScale)
+                                if (video.namePositionY != null) putExtra(CallVideoActivity.EXTRA_NAME_POSITION_Y, video.namePositionY)
                             }
                             context.startActivity(intent)
                         },
@@ -629,6 +631,8 @@ fun VideoEditDialog(
     var startMs by remember { mutableStateOf(video.trimStartMs?.toString() ?: "0") }
     var endMs by remember { mutableStateOf(video.trimEndMs?.toString() ?: video.durationMs.toString()) }
     var customAudioUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var videoScale by remember { mutableStateOf(video.videoScale ?: 1.0f) }
+    var namePositionY by remember { mutableStateOf(video.namePositionY ?: 0.1f) }
     
     val audioPicker = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
@@ -642,7 +646,10 @@ fun VideoEditDialog(
         onDismissRequest = onDismiss,
         title = { Text("Edit Video Wallpaper") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 Text("Trim Video (in milliseconds):")
                 androidx.compose.material3.OutlinedTextField(
                     value = startMs,
@@ -657,6 +664,22 @@ fun VideoEditDialog(
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
                 )
                 
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Video Zoom/Scale: ${String.format(Locale.US, "%.1fx", videoScale)}")
+                androidx.compose.material3.Slider(
+                    value = videoScale,
+                    onValueChange = { videoScale = it },
+                    valueRange = 0.5f..3.0f
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Caller Name Position (Top -> Bottom):")
+                androidx.compose.material3.Slider(
+                    value = namePositionY,
+                    onValueChange = { namePositionY = it },
+                    valueRange = 0.0f..0.8f
+                )
+
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("Custom Audio Song:")
                 Button(onClick = { audioPicker.launch(arrayOf("audio/*")) }) {
@@ -682,7 +705,9 @@ fun VideoEditDialog(
                 val updatedVideo = video.copy(
                     trimStartMs = parsedStart,
                     trimEndMs = parsedEnd,
-                    customAudioPath = finalAudioPath
+                    customAudioPath = finalAudioPath,
+                    videoScale = videoScale,
+                    namePositionY = namePositionY
                 )
                 viewModel.updateSavedVideo(context, userEmail, updatedVideo)
                 onDismiss()
