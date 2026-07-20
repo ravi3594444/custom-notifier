@@ -91,6 +91,29 @@ class NotificationSetterViewModel : ViewModel() {
     private val _previewingSoundId = MutableStateFlow<String?>(null)
     val previewingSoundId: StateFlow<String?> = _previewingSoundId.asStateFlow()
 
+    // --- "My Videos" library state (Call Video Wallpaper feature) --------
+    // Mirrors savedSounds but for video files. Loaded when the user opens
+    // the Call Video Wallpaper screen; updated whenever a new video is
+    // imported or an existing one is deleted.
+    private val _savedVideos = MutableStateFlow<List<SavedVideo>>(emptyList())
+    val savedVideos: StateFlow<List<SavedVideo>> = _savedVideos.asStateFlow()
+
+    // The id of the video that will play the next time an incoming call
+    // arrives. Null if no video is set. Stored in SharedPreferences via
+    // VideoLibraryManager.
+    private val _activeVideoId = MutableStateFlow<String?>(null)
+    val activeVideoId: StateFlow<String?> = _activeVideoId.asStateFlow()
+
+    // The id of the video currently being previewed in-app (so the UI can
+    // show a Stop button). Null when no preview is playing.
+    private val _previewingVideoId = MutableStateFlow<String?>(null)
+    val previewingVideoId: StateFlow<String?> = _previewingVideoId.asStateFlow()
+
+    // Separate MediaPlayer used for video previews. We keep it independent
+    // of the audio mediaPlayer above so audio previews and video previews
+    // never step on each other.
+    private val videoPreviewPlayer = MediaPlayer()
+
     private val mediaPlayer = MediaPlayer()
     private var playbackJob: Job? = null
 
@@ -258,6 +281,156 @@ class NotificationSetterViewModel : ViewModel() {
         if (_previewingSoundId.value == sound.id) stopPreview()
         viewModelScope.launch(Dispatchers.IO) {
             _savedSounds.value = SoundLibraryManager.remove(appContext, userEmail, sound.id)
+        }
+    }
+
+    // =========================================================================
+    // "My Videos" library (Call Video Wallpaper feature)
+    // =========================================================================
+
+    /**
+     * Loads the user's saved-video library into [_savedVideos] and the
+     * active video id into [_activeVideoId]. Called when the user opens
+     * the Call Video Wallpaper screen and also after sign-in.
+     */
+    fun loadVideoLibrary(context: Context, userEmail: String) {
+        val appContext = context.applicationContext
+        viewModelScope.launch(Dispatchers.IO) {
+            _savedVideos.value = VideoLibraryManager.loadAll(appContext, userEmail)
+            _activeVideoId.value = VideoLibraryManager.getActiveVideoId(appContext)
+        }
+    }
+
+    /**
+     * Imports the supplied [sourceUri] into the user's video library.
+     * This is a long operation (file copy + metadata extraction), so it
+     * runs on Dispatchers.IO and surfaces progress via [_processingStatus].
+     */
+    fun importVideoFromUri(context: Context, userEmail: String, sourceUri: Uri) {
+        val appContext = context.applicationContext
+        viewModelScope.launch {
+            _isProcessing.value = true
+            _processingStatus.value = "Importing video..."
+            try {
+                val added = withContext(Dispatchers.IO) {
+                    VideoLibraryManager.importFromUri(appContext, userEmail, sourceUri)
+                }
+                if (added != null) {
+                    _savedVideos.value = VideoLibraryManager.loadAll(appContext, userEmail)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(appContext, "Video added: ${added.displayName}", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(appContext, "Could not import that video.", Toast.LENGTH_LONG).show()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(appContext, "Import failed: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } finally {
+                _isProcessing.value = false
+            }
+        }
+    }
+
+    /**
+     * Toggles in-app preview playback for a saved video. Plays only the
+     * audio track (no video surface) since the library list doesn't have a
+     * place to render the picture — this is just a "what does this sound
+     * like?" check. The actual full-screen video plays on the incoming-call
+     * activity.
+     *
+     * Tapping the same row twice stops the preview. Tapping a different
+     * row switches to it.
+     */
+    fun toggleVideoPreview(context: Context, video: SavedVideo) {
+        val appContext = context.applicationContext
+        if (_previewingVideoId.value == video.id) {
+            stopVideoPreview()
+            return
+        }
+        stopVideoPreview()
+        viewModelScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    videoPreviewPlayer.reset()
+                    videoPreviewPlayer.setDataSource(appContext, Uri.fromFile(File(video.localFilePath)))
+                    videoPreviewPlayer.prepare()
+                    videoPreviewPlayer.setOnCompletionListener {
+                        _previewingVideoId.value = null
+                    }
+                    videoPreviewPlayer.start()
+                }
+                _previewingVideoId.value = video.id
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(appContext, "Could not preview this video.", Toast.LENGTH_SHORT).show()
+                }
+                _previewingVideoId.value = null
+            }
+        }
+    }
+
+    /** Stops any video preview that's currently playing. */
+    fun stopVideoPreview() {
+        try {
+            if (videoPreviewPlayer.isPlaying) videoPreviewPlayer.pause()
+            videoPreviewPlayer.reset()
+        } catch (_: Exception) {}
+        _previewingVideoId.value = null
+    }
+
+    /**
+     * Marks the supplied video as the one that should play on the next
+     * incoming call. Persists to SharedPreferences so CallVideoReceiver
+     * can read it when the phone rings.
+     */
+    fun setActiveVideo(context: Context, userEmail: String, video: SavedVideo) {
+        val appContext = context.applicationContext
+        viewModelScope.launch(Dispatchers.IO) {
+            VideoLibraryManager.setActiveVideoId(appContext, video.id, userEmail)
+            _activeVideoId.value = video.id
+            withContext(Dispatchers.Main) {
+                Toast.makeText(
+                    appContext,
+                    "Set as call video: ${video.displayName}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    /** Clears the active video (so calls ring normally with no video wallpaper). */
+    fun clearActiveVideo(context: Context, userEmail: String) {
+        val appContext = context.applicationContext
+        viewModelScope.launch(Dispatchers.IO) {
+            VideoLibraryManager.setActiveVideoId(appContext, null, userEmail)
+            _activeVideoId.value = null
+            withContext(Dispatchers.Main) {
+                Toast.makeText(
+                    appContext,
+                    "Call video wallpaper disabled",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    /** Permanently removes a video from the library and deletes its file. */
+    fun deleteSavedVideo(context: Context, userEmail: String, video: SavedVideo) {
+        val appContext = context.applicationContext
+        if (_previewingVideoId.value == video.id) stopVideoPreview()
+        viewModelScope.launch(Dispatchers.IO) {
+            _savedVideos.value = VideoLibraryManager.remove(appContext, userEmail, video.id)
+            // If we just deleted the active video, also clear the active
+            // state flow so the UI updates.
+            if (_activeVideoId.value == video.id) {
+                _activeVideoId.value = null
+            }
         }
     }
 
@@ -855,7 +1028,15 @@ class NotificationSetterViewModel : ViewModel() {
             stopPreview()
         } catch (_: Exception) {}
         try {
+            stopVideoPreview()
+        } catch (_: Exception) {}
+        try {
             mediaPlayer.release()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        try {
+            videoPreviewPlayer.release()
         } catch (e: Exception) {
             e.printStackTrace()
         }

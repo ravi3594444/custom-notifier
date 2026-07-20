@@ -6,6 +6,31 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
+    <!-- ================================================================== -->
+    <!-- Call Video Wallpaper feature permissions                            -->
+    <!-- ================================================================== -->
+
+    <!-- Needed to receive ACTION_PHONE_STATE_CHANGED broadcasts so we know
+         when a call is ringing. -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
+    <!-- Needed on API 28+ to read phone state and (defensively) the
+         incoming phone number. We don't actually read the number, but some
+         OEM ROMs refuse to deliver the broadcast without this permission. -->
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+
+    <!-- Needed on API 26+ to programmatically answer calls via
+         TelecomManager.acceptRingingCall(). -->
+    <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
+
+    <!-- Lets the CallVideoActivity turn the screen on and show over the
+         lockscreen when a call arrives. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- On Android 14+ (API 34+), apps need this permission to launch a
+         full-screen intent from a broadcast receiver. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
     <application
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -26,6 +51,35 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- ============================================================ -->
+        <!-- Call Video Wallpaper feature components                       -->
+        <!-- ============================================================ -->
+
+        <!-- Full-screen activity that plays the user's chosen video when a
+             call arrives. Excludes from recents so the video wallpaper
+             doesn't linger in the recent-apps carousel. -->
+        <activity
+            android:name=".CallVideoActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:showOnLockScreen="true"
+            android:turnScreenOn="true"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.MyApplication" />
+
+        <!-- BroadcastReceiver that listens for PHONE_STATE broadcasts and
+             launches CallVideoActivity when the phone starts ringing.
+             Exported=false because the system still delivers protected
+             broadcasts to non-exported receivers. -->
+        <receiver
+            android:name=".CallVideoReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.PHONE_STATE" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

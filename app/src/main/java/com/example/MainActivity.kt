@@ -49,6 +49,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.VideoCall
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -614,6 +615,9 @@ fun NotificationSetterScreen(
         // Also load the saved-sound library so it's ready when the user
         // opens the "My Sounds" tab.
         viewModel.loadSoundLibrary(context, userEmail)
+        // And load the saved-video library so the Call Video Wallpaper
+        // screen shows the user's previously-imported videos immediately.
+        viewModel.loadVideoLibrary(context, userEmail)
     }
 
     val mediaPickerLauncher = rememberLauncherForActivityResult(
@@ -684,6 +688,18 @@ fun NotificationSetterScreen(
                         scope.launch { drawerState.close() }
                     },
                     icon = { Icon(Icons.Default.LibraryMusic, contentDescription = null) },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+
+                NavigationDrawerItem(
+                    label = { Text("Call Video Wallpaper", fontWeight = FontWeight.Bold) },
+                    selected = currentScreen == "call_video",
+                    onClick = {
+                        viewModel.stopPreview()
+                        viewModel.setCurrentScreen("call_video")
+                        scope.launch { drawerState.close() }
+                    },
+                    icon = { Icon(Icons.Default.VideoCall, contentDescription = null) },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
 
@@ -1231,6 +1247,13 @@ fun NotificationSetterScreen(
     }
 } else if (currentScreen == "library") {
     MySoundsScreen(
+        userEmail = userEmail,
+        viewModel = viewModel,
+        onMenuClick = { scope.launch { drawerState.open() } },
+        onBackToCustomizer = { viewModel.setCurrentScreen("customizer") }
+    )
+} else if (currentScreen == "call_video") {
+    CallVideoWallpaperScreen(
         userEmail = userEmail,
         viewModel = viewModel,
         onMenuClick = { scope.launch { drawerState.open() } },
