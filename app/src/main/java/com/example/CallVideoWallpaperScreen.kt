@@ -300,6 +300,8 @@ fun CallVideoWallpaperScreen(
                         isActive = activeVideoId == video.id,
                         isPreviewing = previewingVideoId == video.id,
                         isProcessing = isProcessing,
+                        userEmail = userEmail,
+                        viewModel = viewModel,
                         onPreviewToggle = {
                             viewModel.toggleVideoPreview(context, video)
                         },
@@ -310,6 +312,9 @@ fun CallVideoWallpaperScreen(
                                 putExtra(CallVideoActivity.EXTRA_VIDEO_DISPLAY_NAME, video.displayName)
                                 putExtra(CallVideoActivity.EXTRA_VIDEO_MIME_TYPE, video.mimeType)
                                 putExtra(CallVideoActivity.EXTRA_IS_PREVIEW_MODE, true)
+                                if (video.trimStartMs != null) putExtra(CallVideoActivity.EXTRA_TRIM_START_MS, video.trimStartMs)
+                                if (video.trimEndMs != null) putExtra(CallVideoActivity.EXTRA_TRIM_END_MS, video.trimEndMs)
+                                if (video.customAudioPath != null) putExtra(CallVideoActivity.EXTRA_CUSTOM_AUDIO_PATH, video.customAudioPath)
                             }
                             context.startActivity(intent)
                         },
@@ -416,6 +421,8 @@ private fun SavedVideoRow(
     isActive: Boolean,
     isPreviewing: Boolean,
     isProcessing: Boolean,
+    userEmail: String,
+    viewModel: NotificationSetterViewModel,
     onPreviewToggle: () -> Unit,
     onTestCall: () -> Unit,
     onSetActive: () -> Unit,
@@ -423,7 +430,17 @@ private fun SavedVideoRow(
     onDelete: () -> Unit
 ) {
     var confirmDelete by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
     val dateFormat = remember { SimpleDateFormat("MMM d, yyyy · h:mm a", Locale.getDefault()) }
+
+    if (showEditDialog) {
+        VideoEditDialog(
+            video = video,
+            userEmail = userEmail,
+            viewModel = viewModel,
+            onDismiss = { showEditDialog = false }
+        )
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -547,6 +564,15 @@ private fun SavedVideoRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(
+                    onClick = { showEditDialog = true },
+                    modifier = Modifier.weight(1f).height(44.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    enabled = !isProcessing
+                ) {
+                    Text("Edit", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                OutlinedButton(
                     onClick = onTestCall,
                     modifier = Modifier.weight(1f).height(44.dp),
                     shape = RoundedCornerShape(10.dp),
@@ -589,4 +615,85 @@ private fun SavedVideoRow(
             }
         }
     }
+}
+
+@Composable
+fun VideoEditDialog(
+    video: SavedVideo,
+    userEmail: String,
+    viewModel: NotificationSetterViewModel,
+    onDismiss: () -> Unit
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
+    var startMs by remember { mutableStateOf(video.trimStartMs?.toString() ?: "0") }
+    var endMs by remember { mutableStateOf(video.trimEndMs?.toString() ?: video.durationMs.toString()) }
+    var customAudioUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    
+    val audioPicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            customAudioUri = uri
+        }
+    }
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Video Wallpaper") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("Trim Video (in milliseconds):")
+                androidx.compose.material3.OutlinedTextField(
+                    value = startMs,
+                    onValueChange = { startMs = it },
+                    label = { Text("Start Time (ms)") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                )
+                androidx.compose.material3.OutlinedTextField(
+                    value = endMs,
+                    onValueChange = { endMs = it },
+                    label = { Text("End Time (ms)") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Custom Audio Song:")
+                Button(onClick = { audioPicker.launch(arrayOf("audio/*")) }) {
+                    Text(if (customAudioUri != null || video.customAudioPath != null) "Change Audio" else "Select Audio")
+                }
+                if (customAudioUri != null) {
+                    Text("New audio selected", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+                } else if (video.customAudioPath != null) {
+                    Text("Has custom audio", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val parsedStart = startMs.toLongOrNull()
+                val parsedEnd = endMs.toLongOrNull()
+                
+                var finalAudioPath = video.customAudioPath
+                if (customAudioUri != null) {
+                    finalAudioPath = VideoLibraryManager.importAudioForVideo(context, customAudioUri!!)
+                }
+                
+                val updatedVideo = video.copy(
+                    trimStartMs = parsedStart,
+                    trimEndMs = parsedEnd,
+                    customAudioPath = finalAudioPath
+                )
+                viewModel.updateSavedVideo(context, userEmail, updatedVideo)
+                onDismiss()
+            }) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

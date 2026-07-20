@@ -44,7 +44,14 @@ data class SavedVideo(
      * MIME type of the source video (e.g. "video/mp4"). Used by the
      * VideoView inside CallVideoActivity to pick the right decoder.
      */
-    val mimeType: String
+    val mimeType: String,
+    
+    /** Optional start time for video trimming in milliseconds. */
+    val trimStartMs: Long? = null,
+    /** Optional end time for video trimming in milliseconds. */
+    val trimEndMs: Long? = null,
+    /** Optional local file path to a custom audio song to play instead of the video's audio. */
+    val customAudioPath: String? = null
 )
 
 /**
@@ -207,6 +214,42 @@ object VideoLibraryManager {
             val result = current.sortedByDescending { it.createdAt }
             saveAll(context, userEmail, result)
             entry
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    /**
+     * Copies an audio file to saved_videos/ and returns its absolute path.
+     */
+    fun importAudioForVideo(context: Context, sourceUri: Uri): String? {
+        return try {
+            val dir = savedVideosDir(context)
+            var ext = "mp3"
+            try {
+                context.contentResolver.query(sourceUri, null, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val nameIdx = cursor.getColumnIndex(android.provider.MediaStore.MediaColumns.DISPLAY_NAME)
+                        if (nameIdx >= 0) {
+                            val name = cursor.getString(nameIdx)
+                            val dotIdx = name.lastIndexOf('.')
+                            if (dotIdx > 0 && dotIdx < name.length - 1) {
+                                ext = name.substring(dotIdx + 1).lowercase()
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            val id = UUID.randomUUID().toString()
+            val savedFile = File(dir, "audio_$id.$ext")
+            context.contentResolver.openInputStream(sourceUri).use { input ->
+                if (input == null) return null
+                savedFile.outputStream().use { output -> input.copyTo(output) }
+            }
+            savedFile.absolutePath
         } catch (e: Exception) {
             e.printStackTrace()
             null

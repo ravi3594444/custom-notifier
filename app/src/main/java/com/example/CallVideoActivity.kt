@@ -94,12 +94,18 @@ class CallVideoActivity : ComponentActivity() {
         const val EXTRA_VIDEO_DISPLAY_NAME = "extra_video_display_name"
         const val EXTRA_VIDEO_MIME_TYPE = "extra_video_mime_type"
         const val EXTRA_IS_PREVIEW_MODE = "extra_is_preview_mode"
+        const val EXTRA_TRIM_START_MS = "extra_trim_start_ms"
+        const val EXTRA_TRIM_END_MS = "extra_trim_end_ms"
+        const val EXTRA_CUSTOM_AUDIO_PATH = "extra_custom_audio_path"
         private const val TAG = "CallVideoActivity"
     }
 
     private var videoPath: String? = null
     private var videoDisplayName: String? = null
     private var videoMimeType: String? = null
+    private var trimStartMs: Long = -1L
+    private var trimEndMs: Long = -1L
+    private var customAudioPath: String? = null
     private var isPreviewMode: Boolean = false
     private var telephonyManager: TelephonyManager? = null
     private var phoneStateListener: android.telephony.PhoneStateListener? = null
@@ -160,6 +166,9 @@ class CallVideoActivity : ComponentActivity() {
         videoPath = intent.getStringExtra(EXTRA_VIDEO_PATH)
         videoDisplayName = intent.getStringExtra(EXTRA_VIDEO_DISPLAY_NAME) ?: "Incoming Call"
         videoMimeType = intent.getStringExtra(EXTRA_VIDEO_MIME_TYPE) ?: "video/*"
+        trimStartMs = intent.getLongExtra(EXTRA_TRIM_START_MS, -1L)
+        trimEndMs = intent.getLongExtra(EXTRA_TRIM_END_MS, -1L)
+        customAudioPath = intent.getStringExtra(EXTRA_CUSTOM_AUDIO_PATH)
 
         if (videoPath == null || !File(videoPath).exists()) {
             Log.e(TAG, "Video path missing or file does not exist: $videoPath")
@@ -204,6 +213,9 @@ class CallVideoActivity : ComponentActivity() {
             CallVideoScreen(
                 videoPath = path,
                 videoDisplayName = name,
+                trimStartMs = trimStartMs,
+                trimEndMs = trimEndMs,
+                customAudioPath = customAudioPath,
                 onAccept = {
                     if (isPreviewMode) {
                         finish()
@@ -259,10 +271,33 @@ class CallVideoActivity : ComponentActivity() {
 private fun CallVideoScreen(
     videoPath: String,
     videoDisplayName: String,
+    trimStartMs: Long,
+    trimEndMs: Long,
+    customAudioPath: String?,
     onAccept: () -> Unit,
     onDismiss: () -> Unit
 ) {
     var videoViewRef by remember { mutableStateOf<VideoView?>(null) }
+    
+    // Manage custom audio playback
+    DisposableEffect(customAudioPath) {
+        var audioPlayer: android.media.MediaPlayer? = null
+        if (customAudioPath != null && File(customAudioPath).exists()) {
+            try {
+                audioPlayer = android.media.MediaPlayer().apply {
+                    setDataSource(customAudioPath)
+                    isLooping = true
+                    prepareAsync()
+                    setOnPreparedListener { start() }
+                }
+            } catch (e: Exception) {
+                Log.e("CallVideoScreen", "Error playing custom audio", e)
+            }
+        }
+        onDispose {
+            audioPlayer?.release()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -276,19 +311,38 @@ private fun CallVideoScreen(
                     setVideoURI(android.net.Uri.fromFile(File(videoPath)))
                     setOnPreparedListener { mp ->
                         mp.isLooping = true
-                        // Audio plays at default volume (per design: video's
-                        // own audio replaces the ringtone).
-                        mp.setVolume(1.0f, 1.0f)
+                        if (trimStartMs > 0) {
+                            mp.seekTo(trimStartMs.toInt())
+                        }
+                        
+                        // Mute video if custom audio is provided
+                        if (customAudioPath != null) {
+                            mp.setVolume(0f, 0f)
+                        } else {
+                            mp.setVolume(1.0f, 1.0f)
+                        }
                         start()
                     }
                     setOnErrorListener { _, _, _ ->
-                        // If the video can't be played, log and let the call
-                        // screen handle the rest. We don't show a toast from
-                        // here because there's no UI to show it on top of.
                         Log.e("CallVideoScreen", "VideoView playback error for $videoPath")
                         false
                     }
                     videoViewRef = this
+                }
+            },
+            update = { view ->
+                // Poll for trimEndMs
+                if (trimEndMs > 0 && trimEndMs > trimStartMs) {
+                    view.postDelayed(object : Runnable {
+                        override fun run() {
+                            try {
+                                if (view.isPlaying && view.currentPosition >= trimEndMs) {
+                                    view.seekTo(trimStartMs.coerceAtLeast(0).toInt())
+                                }
+                                view.postDelayed(this, 100)
+                            } catch (_: Exception) {}
+                        }
+                    }, 100)
                 }
             },
             modifier = Modifier.fillMaxSize()

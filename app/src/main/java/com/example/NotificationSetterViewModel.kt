@@ -434,6 +434,20 @@ class NotificationSetterViewModel : ViewModel() {
         }
     }
 
+    /** Updates an existing video in the library. */
+    fun updateSavedVideo(context: Context, userEmail: String, video: SavedVideo) {
+        val appContext = context.applicationContext
+        viewModelScope.launch(Dispatchers.IO) {
+            val currentList = VideoLibraryManager.loadAll(appContext, userEmail).toMutableList()
+            val index = currentList.indexOfFirst { it.id == video.id }
+            if (index >= 0) {
+                currentList[index] = video
+                VideoLibraryManager.saveAll(appContext, userEmail, currentList)
+                _savedVideos.value = VideoLibraryManager.loadAll(appContext, userEmail)
+            }
+        }
+    }
+
     /**
      * Copies the processed audio file into the user's permanent saved_sounds
      * directory and appends a [SavedSound] entry to the library index. Called
