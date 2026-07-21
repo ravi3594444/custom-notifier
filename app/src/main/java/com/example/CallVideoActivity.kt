@@ -332,7 +332,12 @@ class CallVideoActivity : ComponentActivity() {
         // --- Render Compose UI --------------------------------------------
         val path = videoPath!!
         
-        // Priority: callerName (custom) > contact name (from phone book) > videoDisplayName > "Incoming Call"
+        // Priority: 
+        // 1. Custom name (user-set in settings)
+        // 2. Contact name (from phone contacts) 
+        // 3. Phone number (if available)
+        // 4. Video display name
+        // 5. "Incoming Call"
         val displayNameForCall = when {
             !callerName.isNullOrBlank() -> callerName!!
             isPreviewMode -> "Ravi" // Preview always shows "Ravi"
@@ -341,7 +346,12 @@ class CallVideoActivity : ComponentActivity() {
                 val contactName = callerNumber?.let { 
                     ContactUtils.getContactName(contentResolver, it) 
                 }
-                contactName ?: videoDisplayName ?: "Incoming Call"
+                when {
+                    contactName != null -> contactName
+                    !callerNumber.isNullOrBlank() -> callerNumber!!
+                    !videoDisplayName.isNullOrBlank() -> videoDisplayName!!
+                    else -> "Incoming Call"
+                }
             }
         }
         
