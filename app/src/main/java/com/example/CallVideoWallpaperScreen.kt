@@ -5,6 +5,8 @@ import android.app.Activity
 import android.app.role.RoleManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.util.Log
+import android.widget.Toast
 import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -685,6 +687,8 @@ private fun InCallServiceSetupCard() {
                 
                 Button(
                     onClick = {
+                        Toast.makeText(context, "Button tapped…", Toast.LENGTH_SHORT).show()
+                        Log.d("DefaultDialerDebug", "onClick fired, SDK=${Build.VERSION.SDK_INT}")
                         try {
                             when {
                                 // API 29+ (Android 10+): ACTION_CHANGE_DEFAULT_DIALER is
@@ -694,14 +698,17 @@ private fun InCallServiceSetupCard() {
                                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
                                     val roleManager =
                                         context.getSystemService(Context.ROLE_SERVICE) as? RoleManager
+                                    Log.d("DefaultDialerDebug", "roleManager=$roleManager available=${roleManager?.isRoleAvailable(RoleManager.ROLE_DIALER)} held=${roleManager?.isRoleHeld(RoleManager.ROLE_DIALER)}")
                                     if (roleManager != null &&
                                         roleManager.isRoleAvailable(RoleManager.ROLE_DIALER)
                                     ) {
                                         if (roleManager.isRoleHeld(RoleManager.ROLE_DIALER)) {
                                             // Already held; nothing to request. Surface app
                                             // settings so the user can confirm/change it.
+                                            Toast.makeText(context, "Already default dialer — opening settings", Toast.LENGTH_SHORT).show()
                                             openAppSettings(context)
                                         } else {
+                                            Toast.makeText(context, "Requesting dialer role…", Toast.LENGTH_SHORT).show()
                                             val intent =
                                                 roleManager.createRequestRoleIntent(RoleManager.ROLE_DIALER)
                                             if (context is Activity) {
@@ -712,6 +719,7 @@ private fun InCallServiceSetupCard() {
                                             }
                                         }
                                     } else {
+                                        Toast.makeText(context, "Dialer role unavailable — opening settings", Toast.LENGTH_SHORT).show()
                                         openAppSettings(context)
                                     }
                                 }
@@ -727,7 +735,8 @@ private fun InCallServiceSetupCard() {
                                 }
                             }
                         } catch (e: Exception) {
-                            // Fallback: try to open the app settings
+                            Log.e("DefaultDialerDebug", "Exception in click handler", e)
+                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
                             openAppSettings(context)
                         }
                     },
