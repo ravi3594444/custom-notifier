@@ -67,8 +67,12 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
  *   - Sets showWhenLocked + turnScreenOn so it appears over the lockscreen.
  *   - Dismisses the keyguard so the user can tap the buttons without first
  *     having to swipe / enter their PIN.
- *   - Plays the video on loop with its own audio (per the user's design
- *     choice — the system ringtone is NOT played in parallel).
+ *   - Plays the video on loop with its own audio (the video's audio
+ *     track replaces silence, NOT the system ringtone — see note below).
+ *     The system ringtone still plays on STREAM_RING in parallel; we
+ *     can't silence it without becoming the default dialer (huge scope).
+ *     For video-only audio, the user should set their system call
+ *     ringtone to 'None' in Android Sound settings.
  *   - When the user taps Accept: calls CallVideoController.answerCall()
  *     then finishes the activity so the system call screen takes over.
  *   - When the user taps Dismiss: calls CallVideoController.rejectCall()

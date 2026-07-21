@@ -1426,6 +1426,16 @@ fun VideoEditDialog(
                                     Text(if (customAudioUri != null || video.customAudioPath != null) "Change Audio" else "Select Audio")
                                 }
                             }
+                            // Honest note about the parallel-ringtone limitation:
+                            // we can't silence the system ringtone without
+                            // becoming the default dialer. Tell the user how to
+                            // get video-only audio.
+                            Text(
+                                text = "Note: your system call ringtone will also play in parallel. For video-only audio, set your system call ringtone to 'None' in Android Sound settings.",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
                         }
                     }
                 }
