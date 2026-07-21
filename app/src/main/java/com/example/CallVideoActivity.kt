@@ -131,7 +131,16 @@ class CallVideoActivity : ComponentActivity() {
     private var nameBgColor: Int = android.graphics.Color.parseColor("#80000000")
     private var isPreviewMode: Boolean = false
     private var telephonyManager: TelephonyManager? = null
+    // Deprecated path for API < 31. Still kept for compatibility with older
+    // devices (minSdk is 24). Auto-cleaned up in onStop.
+    @Suppress("DEPRECATION")
     private var phoneStateListener: android.telephony.PhoneStateListener? = null
+    // Modern path for API 31+. TelephonyCallback replaces the deprecated
+    // PhoneStateListener and is the only reliable way to receive call state
+    // changes on some OEM ROMs (Samsung One UI 5+, MIUI 14+) where the
+    // legacy listener silently stops delivering callbacks after the app is
+    // backgrounded.
+    private var telephonyCallback: android.telephony.TelephonyCallback? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -210,35 +219,13 @@ class CallVideoActivity : ComponentActivity() {
             return
         }
 
-        // --- PhoneStateListener: auto-finish when call ends --------------
-        if (!isPreviewMode) {
-            telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-            phoneStateListener = object : android.telephony.PhoneStateListener() {
-                override fun onCallStateChanged(state: Int, phoneNumber: String?) {
-                    when (state) {
-                        TelephonyManager.CALL_STATE_OFFHOOK -> {
-                            // Call was answered (either via our Accept button or
-                            // via the system call screen). Dismiss the video so
-                            // the system in-call UI can take over.
-                            Log.d(TAG, "Call answered (OFFHOOK) — finishing activity.")
-                            finish()
-                        }
-                        TelephonyManager.CALL_STATE_IDLE -> {
-                            // Call ended / rejected / caller hung up. Dismiss.
-                            Log.d(TAG, "Call ended (IDLE) — finishing activity.")
-                            finish()
-                        }
-                        // CALL_STATE_RINGING: still ringing — do nothing.
-                    }
-                }
-            }
-            try {
-                @Suppress("DEPRECATION")
-                telephonyManager?.listen(phoneStateListener, android.telephony.PhoneStateListener.LISTEN_CALL_STATE)
-            } catch (e: SecurityException) {
-                Log.w(TAG, "Cannot listen to phone state (READ_PHONE_STATE missing?)", e)
-            }
-        }
+        // --- Phone state listener registration is deferred to onStart so
+        //     the activity's Compose UI has already been mounted before any
+        //     callback can fire. Previously the listener was registered here
+        //     in onCreate before setContent — if the caller hung up in the
+        //     ~10-50ms window between registration and setContent, finish()
+        //     fired on an un-rendered activity and on some OEM ROMs threw
+        //     WindowManager$BadTokenException.
 
         // --- Render Compose UI --------------------------------------------
         val path = videoPath!!
@@ -285,13 +272,114 @@ class CallVideoActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        // Register the phone state listener here (not in onCreate) so the
+        // Compose UI is already mounted when any callback fires. Branch on
+        // SDK: API 31+ uses the modern TelephonyCallback; older devices
+        // fall back to the deprecated PhoneStateListener.
+        if (!isPreviewMode) {
+            telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+            registerCallStateListener()
+        }
+    }
+
+    /**
+     * Registers the appropriate call-state listener on the current device.
+     *
+     * - API 31+: uses [android.telephony.TelephonyCallback] with
+     *   [android.telephony.TelephonyCallback.CallStateListener]. This is
+     *   the only reliable path on Samsung One UI 5+ and MIUI 14+, where
+     *   the legacy PhoneStateListener has been observed to silently stop
+     *   delivering callbacks after the app is backgrounded.
+     * - API < 31: uses the deprecated [android.telephony.PhoneStateListener].
+     *   Required because minSdk is 24 and TelephonyCallback only exists
+     *   from API 31.
+     *
+     * Both paths call [onCallStateChanged] which dispatches finish() on
+     * OFFHOOK (call answered) and IDLE (call ended / rejected).
+     */
+    private fun registerCallStateListener() {
+        val tm = telephonyManager ?: return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val cb = object : android.telephony.TelephonyCallback(),
+                    android.telephony.TelephonyCallback.CallStateListener {
+                    override fun onCallStateChanged(state: Int) {
+                        handleCallStateChanged(state)
+                    }
+                }
+                tm.registerTelephonyCallback(mainExecutor, cb)
+                telephonyCallback = cb
+            } else {
+                @Suppress("DEPRECATION")
+                val psl = object : android.telephony.PhoneStateListener() {
+                    override fun onCallStateChanged(state: Int, phoneNumber: String?) {
+                        handleCallStateChanged(state)
+                    }
+                }
+                @Suppress("DEPRECATION")
+                tm.listen(psl, android.telephony.PhoneStateListener.LISTEN_CALL_STATE)
+                phoneStateListener = psl
+            }
+        } catch (e: SecurityException) {
+            Log.w(TAG, "Cannot listen to phone state (READ_PHONE_STATE missing?)", e)
+        } catch (e: Exception) {
+            Log.w(TAG, "Telephony registration failed", e)
+        }
+    }
+
+    /**
+     * Shared handler invoked by both the modern TelephonyCallback and the
+     * legacy PhoneStateListener. OffHOOK = call answered, IDLE = call
+     * ended/rejected, RINGING = still ringing (no-op).
+     */
+    private fun handleCallStateChanged(state: Int) {
+        when (state) {
+            TelephonyManager.CALL_STATE_OFFHOOK -> {
+                Log.d(TAG, "Call answered (OFFHOOK) — finishing activity.")
+                finish()
+            }
+            TelephonyManager.CALL_STATE_IDLE -> {
+                Log.d(TAG, "Call ended (IDLE) — finishing activity.")
+                finish()
+            }
+            // CALL_STATE_RINGING: still ringing — do nothing.
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Unregister the listener when the activity stops to avoid leaking
+        // it. Mirrors the registration in onStart so we always tear down
+        // whatever we set up.
+        unregisterCallStateListener()
+    }
+
+    private fun unregisterCallStateListener() {
+        val tm = telephonyManager ?: return
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                telephonyCallback?.let { tm.unregisterTelephonyCallback(it) }
+                telephonyCallback = null
+            }
+            @Suppress("DEPRECATION")
+            phoneStateListener?.let {
+                try {
+                    @Suppress("DEPRECATION")
+                    tm.listen(it, android.telephony.PhoneStateListener.LISTEN_NONE)
+                } catch (_: Exception) {}
+            }
+            phoneStateListener = null
+        } catch (_: Exception) {}
+    }
+
     override fun onDestroy() {
         super.onDestroy()
-        // Stop listening to phone state to avoid leaking the listener.
-        try {
-            @Suppress("DEPRECATION")
-            telephonyManager?.listen(phoneStateListener, android.telephony.PhoneStateListener.LISTEN_NONE)
-        } catch (_: Exception) {}
+        // Defensive: also tear down here in case onStop wasn't called
+        // (e.g. process killed before onStop ran). No-op if already
+        // unregistered.
+        unregisterCallStateListener()
     }
 
     // Block back button — the user must use Accept/Dismiss to leave this
