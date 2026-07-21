@@ -597,7 +597,7 @@ private fun FullScreenIntentWarningCard(onOpenSettings: () -> Unit) {
 }
 
 /**
- * Card that guides the user to set the app as "Default Caller ID & Spam App"
+ * Card that guides the user to set the app as "Default Phone App"
  * to enable full call interception via InCallService.
  */
 @Composable
@@ -605,8 +605,10 @@ private fun InCallServiceSetupCard() {
     val context = androidx.compose.ui.platform.LocalContext.current
     
     // Check if our app is currently the default dialer
-    val isDefaultDialer = remember {
-        try {
+    var isDefaultDialer by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        isDefaultDialer = try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as? TelecomManager
                 val componentName = telecomManager?.defaultDialerPackage
@@ -641,7 +643,7 @@ private fun InCallServiceSetupCard() {
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "Set as Caller ID & Spam App",
+                        text = "Set as Default Phone App",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -651,17 +653,18 @@ private fun InCallServiceSetupCard() {
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "To show video wallpapers on real calls, set Custom Notifier as your Default Caller ID & Spam App in Android Settings.",
+                    text = "⚡ This is required for videos to play on incoming calls!",
                     fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFE53935)
                 )
                 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "This allows the app to intercept calls and show your chosen video when someone calls you.",
+                    text = "Your normal dialer (Samsung/Google) will still work for making calls. We just intercept incoming calls to show your video.",
                     fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
                 )
                 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -669,13 +672,15 @@ private fun InCallServiceSetupCard() {
                 Button(
                     onClick = {
                         try {
-                            // Open the app's phone settings where user can set it as default dialer
-                            val intent = Intent(TelecomManager.ACTION_CONFIGURE_TELECOM_HANDOVER).apply {
+                            // Request to become the default dialer
+                            val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+                            val intent = Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER).apply {
+                                putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, context.packageName)
                                 flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
                             }
                             context.startActivity(intent)
                         } catch (e: Exception) {
-                            // Fallback: try to open the default phone app settings
+                            // Fallback: try to open the app settings
                             try {
                                 val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                                     data = Uri.parse("package:${context.packageName}")
@@ -688,9 +693,12 @@ private fun InCallServiceSetupCard() {
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary
-                    )
+                    ),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Open Android Phone Settings", fontWeight = FontWeight.Bold)
+                    Icon(Icons.Default.Phone, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Set as Default Phone App", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -717,7 +725,7 @@ private fun InCallServiceSetupCard() {
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = "Call Video Wallpaper is Active! Videos will play when calls come in.",
+                    text = "✅ Call Video Wallpaper Active! Videos will play when calls come in.",
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color(0xFF2E7D32)

@@ -381,16 +381,8 @@ class CallVideoActivity : ComponentActivity() {
                     if (isPreviewMode) {
                         finish()
                     } else {
-                        // If launched from InCallService, use it to answer the call
-                        if (CallInCallService.currentCall != null) {
-                            CallInCallService.answerCall()
-                        } else {
-                            // Fallback: use CallVideoController
-                            val ok = CallVideoController.answerCall(this)
-                            if (!ok) {
-                                CallVideoController.openSystemCallScreen(this)
-                            }
-                        }
+                        // Use CallManager to answer the call
+                        CallManager.accept()
                         finish()
                     }
                 },
@@ -398,16 +390,8 @@ class CallVideoActivity : ComponentActivity() {
                     if (isPreviewMode) {
                         finish()
                     } else {
-                        // If launched from InCallService, use it to reject the call
-                        if (CallInCallService.currentCall != null) {
-                            CallInCallService.rejectCall()
-                        } else {
-                            // Fallback: use CallVideoController
-                            val ok = CallVideoController.rejectCall(this)
-                            if (!ok) {
-                                CallVideoController.openSystemCallScreen(this)
-                            }
-                        }
+                        // Use CallManager to reject the call
+                        CallManager.decline()
                         finish()
                     }
                 }

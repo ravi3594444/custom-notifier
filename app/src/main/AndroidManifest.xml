@@ -10,7 +10,11 @@
     <!-- Call Video Wallpaper feature permissions                            -->
     <!-- ================================================================== -->
 
-    <!-- Needed to receive ACTION_PHONE_STATE_CHANGED broadcasts so we know
+    <!-- Manage own calls - allows this app to be a dialer app.
+         This is REQUIRED for the app to show up as "Default Phone App" option. -->
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+
+    <!-- Needed to receive ACTION_PHONE_STATE broadcasts so we know
          when a call is ringing. -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
@@ -66,6 +70,27 @@
         <!-- Call Video Wallpaper feature components                       -->
         <!-- ============================================================ -->
 
+        <!-- DialerActivity - This is the "trampoline" dialer that forwards
+             calls to the original system dialer. This allows the app to be
+             set as "Default Phone App" while still letting users use their
+             normal dialer for outgoing calls. -->
+        <activity
+            android:name=".DialerActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:noHistory="true">
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.DIAL" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tel" />
+            </intent-filter>
+        </activity>
+
         <!-- Full-screen activity that plays the user's chosen video when a
              call arrives. Excludes from recents so the video wallpaper
              doesn't linger in the recent-apps carousel. -->
@@ -101,13 +126,13 @@
             android:exported="false"
             android:foregroundServiceType="phoneCall" />
 
-        <!-- InCallService - This is the PROPER way to intercept calls!
-             User must set this app as "Default Caller ID & Spam App" in Settings.
+        <!-- InCallService - The proper way to intercept calls!
+             User must set this app as "Default Phone App" in Settings.
              
              This gives us full control over incoming calls:
              - Receive onCallAdded() when call comes in
-             - Use call.answer() and call.reject() directly
-             - No need for foreground service or broadcast receiver
+             - Use CallManager.accept() and CallManager.decline() directly
+             - No lag - instant response!
              
              The BIND_INCALL_SERVICE permission allows us to be a call handling app. -->
         <service
@@ -116,7 +141,7 @@
             android:exported="true"
             android:foregroundServiceType="phoneCall">
             <meta-data
-                android:name="android.telecom.INCALL_SERVICE_UI"
+                android:name="android.telecom.IN_CALL_SERVICE_UI"
                 android:value="true" />
         </service>
     </application>

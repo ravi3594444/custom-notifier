@@ -16,72 +16,28 @@ import java.io.File
  * intercept PHONE_STATE broadcasts with a foreground service.
  * 
  * How it works:
- * 1. User sets this app as "Default Caller ID & Spam App" in Android settings
+ * 1. User sets this app as "Default Phone App" in Android Settings
  * 2. When a call comes in, Android calls our onCallAdded() method
  * 3. We launch CallVideoActivity with the caller's number
- * 4. When user accepts/rejects, we call answer() or disconnect() on the Call object
+ * 4. When user accepts/rejects, we call answer() or disconnect() via CallManager
  * 
  * Requirements:
- * - User must set app as "Default Caller ID & Spam App" in Android Settings
+ * - User must set app as "Default Phone App" in Android Settings
  * - READ_CONTACTS permission to show contact names
  */
 class CallInCallService : InCallService() {
 
     companion object {
         private const val TAG = "CallInCallService"
-        
-        // Store the current active call so we can answer/reject from the activity
-        var currentCall: Call? = null
-            private set
-        
-        // Store the current caller's number
-        var currentCallerNumber: String? = null
-            private set
-        
-        // Store the current caller's name (if available from contacts)
-        var currentCallerName: String? = null
-            private set
-
-        /**
-         * Answer the current incoming call.
-         */
-        fun answerCall() {
-            try {
-                currentCall?.answer()
-                Log.d(TAG, "Call answered")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error answering call", e)
-            }
-        }
-
-        /**
-         * Reject/disconnect the current call.
-         */
-        fun rejectCall() {
-            try {
-                currentCall?.reject(/* suppressSound = */ false, /* reason = */ null)
-                Log.d(TAG, "Call rejected")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error rejecting call", e)
-            }
-        }
     }
 
     override fun onCallAdded(call: Call) {
         super.onCallAdded(call)
         Log.d(TAG, "Call added: ${call.handle}")
 
-        // Store the call for answer/reject actions
-        currentCall = call
-        currentCallerNumber = extractPhoneNumber(call.handle?.toString())
+        // Store the call in CallManager for button access
+        CallManager.currentCall = call
         
-        // Try to get caller name from call details
-        currentCallerName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            call.callerDisplayName
-        } else {
-            null
-        }
-
         // Register for call state changes
         call.registerCallback(object : Call.Callback() {
             override fun onCallStateChanged(call: Call, state: Int) {
@@ -90,19 +46,11 @@ class CallInCallService : InCallService() {
                     Call.STATE_ACTIVE -> {
                         // Call is active (answered)
                         Log.d(TAG, "Call is active")
-                        // Finish the video activity since call screen will show
-                        finishVideoActivity()
                     }
                     Call.STATE_DISCONNECTED -> {
                         // Call ended
                         Log.d(TAG, "Call disconnected")
-                        currentCall = null
-                        currentCallerNumber = null
-                        currentCallerName = null
-                        finishVideoActivity()
-                    }
-                    Call.STATE_RINGING -> {
-                        Log.d(TAG, "Call is ringing")
+                        CallManager.currentCall = null
                     }
                 }
             }
@@ -118,16 +66,14 @@ class CallInCallService : InCallService() {
     override fun onCallRemoved(call: Call) {
         super.onCallRemoved(call)
         Log.d(TAG, "Call removed")
-        currentCall = null
-        currentCallerNumber = null
-        currentCallerName = null
+        if (CallManager.currentCall == call) {
+            CallManager.currentCall = null
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        currentCall = null
-        currentCallerNumber = null
-        currentCallerName = null
+        CallManager.currentCall = null
     }
 
     /**
@@ -135,6 +81,14 @@ class CallInCallService : InCallService() {
      */
     private fun launchVideoActivity(call: Call) {
         val context = this
+
+        // Get the caller's phone number
+        val phoneNumber = extractPhoneNumber(call.handle?.toString())
+        val callerName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            call.callerDisplayName
+        } else {
+            null
+        }
 
         // Get the active video from VideoLibraryManager
         val activeVideo = VideoLibraryManager.getActiveVideoAnyUser(context)
@@ -154,9 +108,8 @@ class CallInCallService : InCallService() {
 
         // Build the config with the caller's phone number
         val config = activeVideo.toCallVideoConfig().copy(
-            callerNumber = currentCallerNumber,
-            // If we have the caller name from the call, use it (higher priority than saved custom name)
-            callerName = currentCallerName ?: activeVideo.callerName
+            callerNumber = phoneNumber,
+            callerName = callerName ?: activeVideo.callerName
         )
 
         try {
@@ -166,11 +119,10 @@ class CallInCallService : InCallService() {
                         Intent.FLAG_ACTIVITY_SINGLE_TOP or
                         Intent.FLAG_ACTIVITY_NO_USER_ACTION
                 putExtra(CallVideoActivity.EXTRA_CONFIG, config)
-                // Mark this as launched from InCallService
                 putExtra(CallVideoActivity.EXTRA_FROM_INCALL_SERVICE, true)
             }
             context.startActivity(launchIntent)
-            Log.d(TAG, "Video activity launched for call from: $currentCallerNumber")
+            Log.d(TAG, "Video activity launched for call from: $phoneNumber")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to launch video activity", e)
         }
@@ -190,20 +142,6 @@ class CallInCallService : InCallService() {
             }
         } catch (e: Exception) {
             handle
-        }
-    }
-
-    /**
-     * Finishes the video activity if it's running.
-     */
-    private fun finishVideoActivity() {
-        try {
-            val intent = Intent(this, CallVideoActivity::class.java).apply {
-                action = CallVideoActivity.ACTION_FINISH
-            }
-            startActivity(intent)
-        } catch (e: Exception) {
-            // Activity might not be running, that's fine
         }
     }
 }
