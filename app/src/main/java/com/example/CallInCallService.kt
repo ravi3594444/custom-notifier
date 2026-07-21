@@ -1,9 +1,7 @@
 package com.example
 
 import android.content.Intent
-import android.graphics.Color
 import android.net.Uri
-import android.os.Build
 import android.telecom.Call
 import android.telecom.InCallService
 import android.util.Log
@@ -33,7 +31,7 @@ class CallInCallService : InCallService() {
 
     override fun onCallAdded(call: Call) {
         super.onCallAdded(call)
-        Log.d(TAG, "Call added: ${call.handle}")
+        Log.d(TAG, "Call added: ${call.details.handle}")
 
         // Store the call in CallManager for button access
         CallManager.currentCall = call
@@ -82,13 +80,11 @@ class CallInCallService : InCallService() {
     private fun launchVideoActivity(call: Call) {
         val context = this
 
-        // Get the caller's phone number
-        val phoneNumber = extractPhoneNumber(call.handle?.toString())
-        val callerName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            call.callerDisplayName
-        } else {
-            null
-        }
+        // Phone number and caller display name are exposed through Call.Details,
+        // not directly on Call.
+        val callDetails = call.details
+        val phoneNumber = extractPhoneNumber(callDetails.handle?.toString())
+        val callerName = callDetails.callerDisplayName
 
         // Get the active video from VideoLibraryManager
         val activeVideo = VideoLibraryManager.getActiveVideoAnyUser(context)
