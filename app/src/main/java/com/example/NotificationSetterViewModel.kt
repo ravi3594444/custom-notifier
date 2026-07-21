@@ -508,6 +508,14 @@ class NotificationSetterViewModel : ViewModel() {
                         }
                         originalVideo.customAudioPath
                     } else {
+                        // Import succeeded — delete the previous custom audio
+                        // file (if any) so it doesn't leak and accumulate as
+                        // disk waste over time.
+                        originalVideo.customAudioPath?.let { oldPath ->
+                            if (oldPath != imported) {
+                                try { File(oldPath).delete() } catch (_: Exception) {}
+                            }
+                        }
                         imported
                     }
                 } else {
