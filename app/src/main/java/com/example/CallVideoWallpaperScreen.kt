@@ -136,6 +136,8 @@ fun CallVideoWallpaperScreen(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 add(Manifest.permission.READ_CALL_LOG)
             }
+            // Add READ_CONTACTS for contact name lookup
+            add(Manifest.permission.READ_CONTACTS)
         }.toTypedArray()
     }
     var hasAllPermissions by remember {
@@ -520,7 +522,7 @@ private fun PermissionWarningCard(onRequest: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "To play your video when a call arrives and let the Accept / Dismiss buttons actually control the call, this app needs READ_PHONE_STATE, ANSWER_PHONE_CALLS, and READ_CALL_LOG permissions.",
+                text = "To play your video when a call arrives, control calls, and show contact names, this app needs READ_PHONE_STATE, ANSWER_PHONE_CALLS, READ_CALL_LOG, and READ_CONTACTS permissions.",
                 fontSize = 12.sp,
                 color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.85f)
             )

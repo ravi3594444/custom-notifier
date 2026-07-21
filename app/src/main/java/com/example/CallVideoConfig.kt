@@ -49,6 +49,8 @@ data class CallVideoConfig(
     val namePositionY: Float,
     /** Custom caller name to display on incoming calls (e.g., "Ravi"). Falls back to videoDisplayName if null/blank. */
     val callerName: String?,
+    /** The phone number of the incoming caller (used to look up contact name). */
+    val callerNumber: String?,
     /** "swipe" or "buttons" — which answer UI to show. */
     val answerStyle: String,
     /** Caller-name font size in sp. */
@@ -74,6 +76,7 @@ data class CallVideoConfig(
         videoScale = parcel.readFloat(),
         namePositionY = parcel.readFloat(),
         callerName = parcel.readString(),
+        callerNumber = parcel.readString(),
         answerStyle = parcel.readString() ?: "swipe",
         nameFontSize = parcel.readFloat(),
         nameFontFamily = parcel.readString() ?: "sans-serif",
@@ -93,6 +96,7 @@ data class CallVideoConfig(
         parcel.writeFloat(videoScale)
         parcel.writeFloat(namePositionY)
         parcel.writeString(callerName)
+        parcel.writeString(callerNumber)
         parcel.writeString(answerStyle)
         parcel.writeFloat(nameFontSize)
         parcel.writeString(nameFontFamily)
@@ -126,6 +130,7 @@ fun SavedVideo.toCallVideoConfig(): CallVideoConfig = CallVideoConfig(
     videoScale = videoScale ?: 1.0f,
     namePositionY = namePositionY ?: 0.1f,
     callerName = callerName,
+    callerNumber = null, // Set at runtime when call comes in
     answerStyle = answerStyle ?: "swipe",
     nameFontSize = nameFontSize ?: 15f,
     nameFontFamily = nameFontFamily ?: "sans-serif",

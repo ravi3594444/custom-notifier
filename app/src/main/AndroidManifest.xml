@@ -19,6 +19,9 @@
          OEM ROMs refuse to deliver the broadcast without this permission. -->
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
 
+    <!-- Needed to read the contact list and display caller names -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
     <!-- Needed on API 26+ to programmatically answer calls via
          TelecomManager.acceptRingingCall(). -->
     <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />

@@ -172,10 +172,14 @@ class CallMonitorService : Service() {
                 val state = intent.getStringExtra(TelephonyManager.EXTRA_STATE) ?: return
                 Log.d(TAG, "Phone state changed: $state (last: $lastState)")
 
+                // Get the incoming phone number (available in RINGING state)
+                val phoneNumber = intent.getStringExtra(TelephonyManager.EXTRA_INCOMING_NUMBER)
+                Log.d(TAG, "Incoming phone number: $phoneNumber")
+
                 // Only trigger on RINGING state, and only if we weren't already ringing
                 if (state == TelephonyManager.EXTRA_STATE_RINGING && lastState != TelephonyManager.EXTRA_STATE_RINGING) {
-                    Log.d(TAG, "Incoming call detected! Launching CallVideoActivity...")
-                    launchCallVideoActivity(context!!)
+                    Log.d(TAG, "Incoming call detected from $phoneNumber! Launching CallVideoActivity...")
+                    launchCallVideoActivity(context!!, phoneNumber)
                 }
 
                 lastState = state
@@ -215,7 +219,7 @@ class CallMonitorService : Service() {
     /**
      * Launches CallVideoActivity when an incoming call is detected.
      */
-    private fun launchCallVideoActivity(context: Context) {
+    private fun launchCallVideoActivity(context: Context, phoneNumber: String?) {
         val activeVideo = VideoLibraryManager.getActiveVideoAnyUser(context) ?: run {
             Log.d(TAG, "No active call video set — not launching")
             return
@@ -229,12 +233,17 @@ class CallMonitorService : Service() {
             return
         }
 
+        // Build the config with the caller's phone number
+        val config = activeVideo.toCallVideoConfig().copy(
+            callerNumber = phoneNumber
+        )
+
         try {
             val launchIntent = Intent(context, CallVideoActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                         Intent.FLAG_ACTIVITY_CLEAR_TOP or
                         Intent.FLAG_ACTIVITY_SINGLE_TOP
-                putExtra(CallVideoActivity.EXTRA_CONFIG, activeVideo.toCallVideoConfig())
+                putExtra(CallVideoActivity.EXTRA_CONFIG, config)
             }
             context.startActivity(launchIntent)
             Log.d(TAG, "Successfully launched CallVideoActivity for: ${activeVideo.displayName}")
