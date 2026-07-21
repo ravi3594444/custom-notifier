@@ -746,7 +746,7 @@ fun VideoEditDialog(
     var videoScale by remember { mutableStateOf(video.videoScale ?: 1.0f) }
     var namePositionY by remember { mutableStateOf(video.namePositionY ?: 0.1f) }
     var answerStyle by remember { mutableStateOf(video.answerStyle ?: "swipe") }
-    var nameFontSize by remember { mutableStateOf(video.nameFontSize ?: 15f) }
+    var nameFontSize by remember { mutableStateOf(video.nameFontSize ?: 24f) }
     var nameFontFamily by remember { mutableStateOf(video.nameFontFamily ?: "sans-serif") }
     
     // Custom color states initialized from saved parameters or defaults
@@ -1250,7 +1250,7 @@ fun VideoEditDialog(
                                 androidx.compose.material3.Slider(
                                     value = nameFontSize,
                                     onValueChange = { nameFontSize = it },
-                                    valueRange = 10f..40f
+                                    valueRange = 14f..60f
                                 )
                             }
 

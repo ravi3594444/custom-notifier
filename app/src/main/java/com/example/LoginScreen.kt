@@ -75,7 +75,7 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
             verticalArrangement = Arrangement.Center
         ) {
             Image(
-                painter = painterResource(id = R.drawable.custom_notifier_icon_1783452599256),
+                painter = painterResource(id = R.drawable.doc5),
                 contentDescription = "App Logo",
                 modifier = Modifier
                     .size(100.dp)

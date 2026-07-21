@@ -642,7 +642,7 @@ fun NotificationSetterScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Image(
-                        painter = painterResource(id = R.drawable.custom_notifier_icon_1783452599256),
+                        painter = painterResource(id = R.drawable.doc5),
                         contentDescription = "App Logo",
                         modifier = Modifier
                             .size(80.dp)
@@ -1310,22 +1310,22 @@ fun DeveloperVersionScreen(
 
         Box(
             modifier = Modifier
-                .size(120.dp)
-                .background(Color.White, RoundedCornerShape(28.dp))
-                .padding(4.dp),
+                .size(140.dp)
+                .background(Color.White, RoundedCornerShape(32.dp))
+                .padding(6.dp),
             contentAlignment = Alignment.Center
         ) {
             Image(
-                painter = painterResource(id = R.drawable.custom_notifier_icon_1783452599256),
+                painter = painterResource(id = R.drawable.doc5),
                 contentDescription = "Ravi Notifier Logo",
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(24.dp)),
+                    .clip(RoundedCornerShape(26.dp)),
                 contentScale = ContentScale.Fit
             )
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         Text(
             text = "DEVELOPER VERSION",
@@ -1380,7 +1380,7 @@ fun DeveloperVersionScreen(
                         )
                         Text(
                             text = "Ravi",
-                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                             color = Color(0xFF2C2C2A)
                         )
                     }
@@ -1392,7 +1392,7 @@ fun DeveloperVersionScreen(
                         )
                         Text(
                             text = "1.0.0",
-                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                             color = Color(0xFF2C2C2A)
                         )
                     }

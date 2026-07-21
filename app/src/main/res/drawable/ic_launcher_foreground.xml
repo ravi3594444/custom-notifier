@@ -3,6 +3,6 @@
     <item
         android:width="108dp"
         android:height="108dp"
-        android:drawable="@drawable/custom_notifier_icon_1783452599256"
+        android:drawable="@drawable/doc5"
         android:gravity="center" />
 </layer-list>

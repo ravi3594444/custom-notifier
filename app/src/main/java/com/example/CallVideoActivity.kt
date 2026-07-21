@@ -154,7 +154,7 @@ class CallVideoActivity : ComponentActivity() {
     private var videoScale: Float = 1.0f
     private var namePositionY: Float = 0.1f // Default near top
     private var answerStyle: String = "swipe"
-    private var nameFontSize: Float = 15f
+    private var nameFontSize: Float = 24f
     private var nameFontFamily: String = "sans-serif"
     private var nameTextColor: Int = android.graphics.Color.WHITE
     private var nameBgColor: Int = android.graphics.Color.parseColor("#80000000")
@@ -223,7 +223,7 @@ class CallVideoActivity : ComponentActivity() {
             @Suppress("DEPRECATION")
             answerStyle = intent.getStringExtra(EXTRA_ANSWER_STYLE) ?: "swipe"
             @Suppress("DEPRECATION")
-            nameFontSize = intent.getFloatExtra(EXTRA_NAME_FONT_SIZE, 15f)
+            nameFontSize = intent.getFloatExtra(EXTRA_NAME_FONT_SIZE, 24f)
             @Suppress("DEPRECATION")
             nameFontFamily = intent.getStringExtra(EXTRA_NAME_FONT_FAMILY) ?: "sans-serif"
             @Suppress("DEPRECATION")
