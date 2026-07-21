@@ -1,6 +1,8 @@
 package com.example
 
 import android.Manifest
+import android.app.Activity
+import android.app.role.RoleManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -596,6 +598,18 @@ private fun FullScreenIntentWarningCard(onOpenSettings: () -> Unit) {
     }
 }
 
+private const val REQUEST_CODE_SET_DEFAULT_DIALER = 4271
+
+private fun openAppSettings(context: Context) {
+    try {
+        val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.parse("package:${context.packageName}")
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        context.startActivity(intent)
+    } catch (_: Exception) {}
+}
+
 /**
  * Card that guides the user to set the app as "Default Phone App"
  * to enable full call interception via InCallService.
@@ -672,22 +686,49 @@ private fun InCallServiceSetupCard() {
                 Button(
                     onClick = {
                         try {
-                            // Request to become the default dialer
-                            val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
-                            val intent = Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER).apply {
-                                putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, context.packageName)
-                                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                            when {
+                                // API 29+ (Android 10+): ACTION_CHANGE_DEFAULT_DIALER is
+                                // deprecated and no longer shows any UI on most OEM builds,
+                                // which is why the button appeared to do nothing. The
+                                // supported path is RoleManager.ROLE_DIALER.
+                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
+                                    val roleManager =
+                                        context.getSystemService(Context.ROLE_SERVICE) as? RoleManager
+                                    if (roleManager != null &&
+                                        roleManager.isRoleAvailable(RoleManager.ROLE_DIALER)
+                                    ) {
+                                        if (roleManager.isRoleHeld(RoleManager.ROLE_DIALER)) {
+                                            // Already held; nothing to request. Surface app
+                                            // settings so the user can confirm/change it.
+                                            openAppSettings(context)
+                                        } else {
+                                            val intent =
+                                                roleManager.createRequestRoleIntent(RoleManager.ROLE_DIALER)
+                                            if (context is Activity) {
+                                                context.startActivityForResult(intent, REQUEST_CODE_SET_DEFAULT_DIALER)
+                                            } else {
+                                                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                                context.startActivity(intent)
+                                            }
+                                        }
+                                    } else {
+                                        openAppSettings(context)
+                                    }
+                                }
+                                // API 24-28: legacy TelecomManager flow still works here.
+                                else -> {
+                                    val telecomManager =
+                                        context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+                                    val intent = Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER).apply {
+                                        putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, context.packageName)
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                    context.startActivity(intent)
+                                }
                             }
-                            context.startActivity(intent)
                         } catch (e: Exception) {
                             // Fallback: try to open the app settings
-                            try {
-                                val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                    data = Uri.parse("package:${context.packageName}")
-                                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-                                }
-                                context.startActivity(intent)
-                            } catch (_: Exception) {}
+                            openAppSettings(context)
                         }
                     },
                     shape = RoundedCornerShape(12.dp),
