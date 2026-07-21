@@ -1,8 +1,6 @@
 package com.example
 
 import android.Manifest
-import android.app.Activity
-import android.app.role.RoleManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
@@ -600,8 +598,6 @@ private fun FullScreenIntentWarningCard(onOpenSettings: () -> Unit) {
     }
 }
 
-private const val REQUEST_CODE_SET_DEFAULT_DIALER = 4271
-
 private fun openAppSettings(context: Context) {
     try {
         val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -682,61 +678,40 @@ private fun InCallServiceSetupCard() {
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
                 )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "Tapping below opens Settings → Default apps. Tap \"Phone app\", then choose Custom Notifier.",
+                    fontSize = 12.sp,
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                )
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 Button(
                     onClick = {
-                        Toast.makeText(context, "Button tapped…", Toast.LENGTH_SHORT).show()
-                        Log.d("DefaultDialerDebug", "onClick fired, SDK=${Build.VERSION.SDK_INT}")
+                        // RoleManager.createRequestRoleIntent() is silently blocked by
+                        // several OEM skins (MIUI, ColorOS, FuntouchOS, some Samsung
+                        // builds) — it returns normally but never shows the picker.
+                        // Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS is a standard
+                        // AOSP settings screen that OEMs don't strip out, so it's the
+                        // reliable path even though it costs the user one extra tap.
                         try {
-                            when {
-                                // API 29+ (Android 10+): ACTION_CHANGE_DEFAULT_DIALER is
-                                // deprecated and no longer shows any UI on most OEM builds,
-                                // which is why the button appeared to do nothing. The
-                                // supported path is RoleManager.ROLE_DIALER.
-                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
-                                    val roleManager =
-                                        context.getSystemService(Context.ROLE_SERVICE) as? RoleManager
-                                    Log.d("DefaultDialerDebug", "roleManager=$roleManager available=${roleManager?.isRoleAvailable(RoleManager.ROLE_DIALER)} held=${roleManager?.isRoleHeld(RoleManager.ROLE_DIALER)}")
-                                    if (roleManager != null &&
-                                        roleManager.isRoleAvailable(RoleManager.ROLE_DIALER)
-                                    ) {
-                                        if (roleManager.isRoleHeld(RoleManager.ROLE_DIALER)) {
-                                            // Already held; nothing to request. Surface app
-                                            // settings so the user can confirm/change it.
-                                            Toast.makeText(context, "Already default dialer — opening settings", Toast.LENGTH_SHORT).show()
-                                            openAppSettings(context)
-                                        } else {
-                                            Toast.makeText(context, "Requesting dialer role…", Toast.LENGTH_SHORT).show()
-                                            val intent =
-                                                roleManager.createRequestRoleIntent(RoleManager.ROLE_DIALER)
-                                            if (context is Activity) {
-                                                context.startActivityForResult(intent, REQUEST_CODE_SET_DEFAULT_DIALER)
-                                            } else {
-                                                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                                context.startActivity(intent)
-                                            }
-                                        }
-                                    } else {
-                                        Toast.makeText(context, "Dialer role unavailable — opening settings", Toast.LENGTH_SHORT).show()
-                                        openAppSettings(context)
-                                    }
-                                }
-                                // API 24-28: legacy TelecomManager flow still works here.
-                                else -> {
-                                    val telecomManager =
-                                        context.getSystemService(Context.TELECOM_SERVICE) as TelecomManager
-                                    val intent = Intent(TelecomManager.ACTION_CHANGE_DEFAULT_DIALER).apply {
-                                        putExtra(TelecomManager.EXTRA_CHANGE_DEFAULT_DIALER_PACKAGE_NAME, context.packageName)
-                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                                    }
-                                    context.startActivity(intent)
-                                }
+                            val intent = android.content.Intent(
+                                android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS
+                            ).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
                             }
+                            context.startActivity(intent)
+                            Toast.makeText(
+                                context,
+                                "Tap \"Phone app\" then choose Custom Notifier",
+                                Toast.LENGTH_LONG
+                            ).show()
                         } catch (e: Exception) {
-                            Log.e("DefaultDialerDebug", "Exception in click handler", e)
-                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                            Log.e("DefaultDialerDebug", "Default apps settings failed", e)
                             openAppSettings(context)
                         }
                     },
