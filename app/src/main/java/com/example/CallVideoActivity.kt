@@ -361,9 +361,17 @@ private fun CallVideoScreen(
         AndroidView(
             factory = { ctx ->
                 VideoView(ctx).apply {
+                    // Set 32-bit high-quality color format to prevent color banding
+                    holder.setFormat(android.graphics.PixelFormat.RGBA_8888)
                     setVideoURI(android.net.Uri.fromFile(File(videoPath)))
                     setOnPreparedListener { mp ->
                         mp.isLooping = true
+                        // Set high-fidelity scaling mode to scale and crop perfectly instead of stretching
+                        try {
+                            mp.setVideoScalingMode(android.media.MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
+                        } catch (e: Exception) {
+                            Log.e("CallVideoScreen", "Error setting video scaling mode", e)
+                        }
                         if (trimStartMs > 0) {
                             mp.seekTo(trimStartMs.toInt())
                         }

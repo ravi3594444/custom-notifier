@@ -740,9 +740,15 @@ fun VideoEditDialog(
                         androidx.compose.ui.viewinterop.AndroidView(
                             factory = { ctx ->
                                 android.widget.VideoView(ctx).apply {
+                                    // Set 32-bit high-quality color format to prevent color banding
+                                    holder.setFormat(android.graphics.PixelFormat.RGBA_8888)
                                     setVideoURI(android.net.Uri.fromFile(File(video.localFilePath)))
                                     setOnPreparedListener { mp ->
                                         mp.isLooping = true
+                                        // Set high-fidelity scaling mode to scale and crop perfectly instead of stretching
+                                        try {
+                                            mp.setVideoScalingMode(android.media.MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
+                                        } catch (_: Exception) {}
                                         mp.setVolume(0f, 0f) // Mute preview so it doesn't disturb editing
                                         val sMs = startMs.toLongOrNull() ?: 0L
                                         if (sMs > 0) {
@@ -949,9 +955,15 @@ fun VideoEditDialog(
                                 androidx.compose.ui.viewinterop.AndroidView(
                                     factory = { ctx ->
                                         android.widget.VideoView(ctx).apply {
+                                            // Set 32-bit high-quality color format to prevent color banding
+                                            holder.setFormat(android.graphics.PixelFormat.RGBA_8888)
                                             setVideoURI(android.net.Uri.fromFile(File(video.localFilePath)))
                                             setOnPreparedListener { mp ->
                                                 mp.isLooping = true
+                                                // Set high-fidelity scaling mode to scale and crop perfectly instead of stretching
+                                                try {
+                                                    mp.setVideoScalingMode(android.media.MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
+                                                } catch (_: Exception) {}
                                                 mp.setVolume(0f, 0f) // Mute preview so it doesn't disturb editing
                                                 val sMs = startMs.toLongOrNull() ?: 0L
                                                 if (sMs > 0) {
