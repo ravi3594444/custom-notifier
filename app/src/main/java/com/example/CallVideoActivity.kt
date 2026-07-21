@@ -11,7 +11,6 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.VideoView
 import androidx.activity.ComponentActivity
-import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -114,6 +113,7 @@ class CallVideoActivity : ComponentActivity() {
         const val EXTRA_NAME_FONT_FAMILY = "extra_name_font_family"
         const val EXTRA_NAME_TEXT_COLOR = "extra_name_text_color"
         const val EXTRA_NAME_BG_COLOR = "extra_name_bg_color"
+        const val EXTRA_VIDEO_FILTER = "extra_video_filter"
         private const val TAG = "CallVideoActivity"
     }
 
@@ -130,18 +130,10 @@ class CallVideoActivity : ComponentActivity() {
     private var nameFontFamily: String = "sans-serif"
     private var nameTextColor: Int = android.graphics.Color.WHITE
     private var nameBgColor: Int = android.graphics.Color.parseColor("#80000000")
+    private var videoFilter: String = "normal"
     private var isPreviewMode: Boolean = false
     private var telephonyManager: TelephonyManager? = null
-    // Deprecated path for API < 31. Still kept for compatibility with older
-    // devices (minSdk is 24). Auto-cleaned up in onStop.
-    @Suppress("DEPRECATION")
     private var phoneStateListener: android.telephony.PhoneStateListener? = null
-    // Modern path for API 31+. TelephonyCallback replaces the deprecated
-    // PhoneStateListener and is the only reliable way to receive call state
-    // changes on some OEM ROMs (Samsung One UI 5+, MIUI 14+) where the
-    // legacy listener silently stops delivering callbacks after the app is
-    // backgrounded.
-    private var telephonyCallback: android.telephony.TelephonyCallback? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -213,6 +205,7 @@ class CallVideoActivity : ComponentActivity() {
         nameFontFamily = intent.getStringExtra(EXTRA_NAME_FONT_FAMILY) ?: "sans-serif"
         nameTextColor = intent.getIntExtra(EXTRA_NAME_TEXT_COLOR, android.graphics.Color.WHITE)
         nameBgColor = intent.getIntExtra(EXTRA_NAME_BG_COLOR, android.graphics.Color.parseColor("#80000000"))
+        videoFilter = intent.getStringExtra(EXTRA_VIDEO_FILTER) ?: "normal"
 
         if (videoPath == null || !File(videoPath).exists()) {
             Log.e(TAG, "Video path missing or file does not exist: $videoPath")
@@ -220,13 +213,35 @@ class CallVideoActivity : ComponentActivity() {
             return
         }
 
-        // --- Phone state listener registration is deferred to onStart so
-        //     the activity's Compose UI has already been mounted before any
-        //     callback can fire. Previously the listener was registered here
-        //     in onCreate before setContent — if the caller hung up in the
-        //     ~10-50ms window between registration and setContent, finish()
-        //     fired on an un-rendered activity and on some OEM ROMs threw
-        //     WindowManager$BadTokenException.
+        // --- PhoneStateListener: auto-finish when call ends --------------
+        if (!isPreviewMode) {
+            telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+            phoneStateListener = object : android.telephony.PhoneStateListener() {
+                override fun onCallStateChanged(state: Int, phoneNumber: String?) {
+                    when (state) {
+                        TelephonyManager.CALL_STATE_OFFHOOK -> {
+                            // Call was answered (either via our Accept button or
+                            // via the system call screen). Dismiss the video so
+                            // the system in-call UI can take over.
+                            Log.d(TAG, "Call answered (OFFHOOK) — finishing activity.")
+                            finish()
+                        }
+                        TelephonyManager.CALL_STATE_IDLE -> {
+                            // Call ended / rejected / caller hung up. Dismiss.
+                            Log.d(TAG, "Call ended (IDLE) — finishing activity.")
+                            finish()
+                        }
+                        // CALL_STATE_RINGING: still ringing — do nothing.
+                    }
+                }
+            }
+            try {
+                @Suppress("DEPRECATION")
+                telephonyManager?.listen(phoneStateListener, android.telephony.PhoneStateListener.LISTEN_CALL_STATE)
+            } catch (e: SecurityException) {
+                Log.w(TAG, "Cannot listen to phone state (READ_PHONE_STATE missing?)", e)
+            }
+        }
 
         // --- Render Compose UI --------------------------------------------
         val path = videoPath!!
@@ -245,6 +260,7 @@ class CallVideoActivity : ComponentActivity() {
                 nameFontFamily = nameFontFamily,
                 nameTextColor = nameTextColor,
                 nameBgColor = nameBgColor,
+                videoFilter = videoFilter,
                 onAccept = {
                     if (isPreviewMode) {
                         finish()
@@ -273,140 +289,22 @@ class CallVideoActivity : ComponentActivity() {
         }
     }
 
-    override fun onStart() {
-        super.onStart()
-        // Register the phone state listener here (not in onCreate) so the
-        // Compose UI is already mounted when any callback fires. Branch on
-        // SDK: API 31+ uses the modern TelephonyCallback; older devices
-        // fall back to the deprecated PhoneStateListener.
-        if (!isPreviewMode) {
-            telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-            registerCallStateListener()
-        }
-
-        // Block back button — the user must use Accept/Dismiss to leave
-        // this screen. Pressing back during an incoming call would drop
-        // them into a confusing half-video / half-call-screen state.
-        //
-        // We use OnBackPressedDispatcher.addCallback (the modern,
-        // predictive-back-safe API) instead of overriding onBackPressed()
-        // directly. The legacy override still works today but is fragile:
-        // it relies on android:enableOnBackInvokedCallback defaulting to
-        // false, and if a future Android release forces predictive back
-        // the override would silently stop intercepting the back gesture.
-        // The callback approach is the supported, future-proof way to
-        // block back navigation.
-        //
-        // In preview mode we DO allow back — the user might be stuck on
-        // the preview screen (e.g. high videoScale pushed buttons
-        // off-screen) and needs an escape hatch. In real-call mode the
-        // only ways out are the Accept / Dismiss buttons or the call
-        // ending.
-        onBackPressedDispatcher.addCallback(this) {
-            if (isPreviewMode) {
-                isEnabled = false
-                onBackPressedDispatcher.onBackPressed()
-            }
-            // else: intentionally consume the back gesture and do nothing.
-        }
-    }
-
-    /**
-     * Registers the appropriate call-state listener on the current device.
-     *
-     * - API 31+: uses [android.telephony.TelephonyCallback] with
-     *   [android.telephony.TelephonyCallback.CallStateListener]. This is
-     *   the only reliable path on Samsung One UI 5+ and MIUI 14+, where
-     *   the legacy PhoneStateListener has been observed to silently stop
-     *   delivering callbacks after the app is backgrounded.
-     * - API < 31: uses the deprecated [android.telephony.PhoneStateListener].
-     *   Required because minSdk is 24 and TelephonyCallback only exists
-     *   from API 31.
-     *
-     * Both paths call [onCallStateChanged] which dispatches finish() on
-     * OFFHOOK (call answered) and IDLE (call ended / rejected).
-     */
-    private fun registerCallStateListener() {
-        val tm = telephonyManager ?: return
+    override fun onDestroy() {
+        super.onDestroy()
+        // Stop listening to phone state to avoid leaking the listener.
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val cb = object : android.telephony.TelephonyCallback(),
-                    android.telephony.TelephonyCallback.CallStateListener {
-                    override fun onCallStateChanged(state: Int) {
-                        handleCallStateChanged(state)
-                    }
-                }
-                tm.registerTelephonyCallback(mainExecutor, cb)
-                telephonyCallback = cb
-            } else {
-                @Suppress("DEPRECATION")
-                val psl = object : android.telephony.PhoneStateListener() {
-                    override fun onCallStateChanged(state: Int, phoneNumber: String?) {
-                        handleCallStateChanged(state)
-                    }
-                }
-                @Suppress("DEPRECATION")
-                tm.listen(psl, android.telephony.PhoneStateListener.LISTEN_CALL_STATE)
-                phoneStateListener = psl
-            }
-        } catch (e: SecurityException) {
-            Log.w(TAG, "Cannot listen to phone state (READ_PHONE_STATE missing?)", e)
-        } catch (e: Exception) {
-            Log.w(TAG, "Telephony registration failed", e)
-        }
-    }
-
-    /**
-     * Shared handler invoked by both the modern TelephonyCallback and the
-     * legacy PhoneStateListener. OffHOOK = call answered, IDLE = call
-     * ended/rejected, RINGING = still ringing (no-op).
-     */
-    private fun handleCallStateChanged(state: Int) {
-        when (state) {
-            TelephonyManager.CALL_STATE_OFFHOOK -> {
-                Log.d(TAG, "Call answered (OFFHOOK) — finishing activity.")
-                finish()
-            }
-            TelephonyManager.CALL_STATE_IDLE -> {
-                Log.d(TAG, "Call ended (IDLE) — finishing activity.")
-                finish()
-            }
-            // CALL_STATE_RINGING: still ringing — do nothing.
-        }
-    }
-
-    override fun onStop() {
-        super.onStop()
-        // Unregister the listener when the activity stops to avoid leaking
-        // it. Mirrors the registration in onStart so we always tear down
-        // whatever we set up.
-        unregisterCallStateListener()
-    }
-
-    private fun unregisterCallStateListener() {
-        val tm = telephonyManager ?: return
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                telephonyCallback?.let { tm.unregisterTelephonyCallback(it) }
-                telephonyCallback = null
-            }
             @Suppress("DEPRECATION")
-            phoneStateListener?.let {
-                try {
-                    @Suppress("DEPRECATION")
-                    tm.listen(it, android.telephony.PhoneStateListener.LISTEN_NONE)
-                } catch (_: Exception) {}
-            }
-            phoneStateListener = null
+            telephonyManager?.listen(phoneStateListener, android.telephony.PhoneStateListener.LISTEN_NONE)
         } catch (_: Exception) {}
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        // Defensive: also tear down here in case onStop wasn't called
-        // (e.g. process killed before onStop ran). No-op if already
-        // unregistered.
-        unregisterCallStateListener()
+    // Block back button — the user must use Accept/Dismiss to leave this
+    // screen. Pressing back during an incoming call would drop them into
+    // a confusing half-video / half-call-screen state.
+    @Suppress("DEPRECATION")
+    @android.annotation.SuppressLint("MissingSuperCall", "GestureBackNavigation")
+    override fun onBackPressed() {
+        // Intentionally do nothing.
     }
 }
 
@@ -430,16 +328,11 @@ private fun CallVideoScreen(
     nameFontFamily: String,
     nameTextColor: Int,
     nameBgColor: Int,
+    videoFilter: String,
     onAccept: () -> Unit,
     onDismiss: () -> Unit
 ) {
     var videoViewRef by remember { mutableStateOf<VideoView?>(null) }
-    // Tracks whether video playback has failed. When true, the VideoView is
-    // hidden (the screen falls back to a black background with the Accept /
-    // Dismiss buttons still visible). This prevents the system's "Can't play
-    // this video" modal from blocking the call controls — which would be
-    // catastrophic during an incoming call.
-    var playbackFailed by remember { mutableStateOf(false) }
     
     val callerFontFamily = remember(nameFontFamily) {
         when (nameFontFamily.lowercase()) {
@@ -476,21 +369,16 @@ private fun CallVideoScreen(
             .background(Color.Black)
     ) {
         // --- Video view (fills the whole screen) -------------------------
-        // When playback fails we drop the VideoView entirely so the user
-        // just sees a black background with the Accept / Dismiss buttons
-        // still visible and tappable. The system's "Can't play this video"
-        // dialog is also suppressed (see setOnErrorListener above).
-        if (!playbackFailed) {
-            AndroidView(
-                factory = { ctx ->
-                    VideoView(ctx).apply {
-                        // Set 32-bit high-quality color format to prevent color banding
-                        holder.setFormat(android.graphics.PixelFormat.RGBA_8888)
-                        setVideoURI(android.net.Uri.fromFile(File(videoPath)))
-                        setOnPreparedListener { mp ->
-                            mp.isLooping = true
-                            // Set high-fidelity scaling mode to scale and crop perfectly instead of stretching
-                            try {
+        AndroidView(
+            factory = { ctx ->
+                VideoView(ctx).apply {
+                    // Set 32-bit high-quality color format to prevent color banding
+                    holder.setFormat(android.graphics.PixelFormat.RGBA_8888)
+                    setVideoURI(android.net.Uri.fromFile(File(videoPath)))
+                    setOnPreparedListener { mp ->
+                        mp.isLooping = true
+                        // Set high-fidelity scaling mode to scale and crop perfectly instead of stretching
+                        try {
                             mp.setVideoScalingMode(android.media.MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
                         } catch (e: Exception) {
                             Log.e("CallVideoScreen", "Error setting video scaling mode", e)
@@ -508,29 +396,32 @@ private fun CallVideoScreen(
                         start()
                     }
                     setOnErrorListener { _, _, _ ->
-                        Log.e("CallVideoScreen", "VideoView playback error for $videoPath — hiding video, keeping call buttons visible")
-                        // Returning true suppresses the system's built-in
-                        // "Can't play this video" dialog, which would otherwise
-                        // appear as a modal over the call screen and block the
-                        // Accept / Dismiss buttons while the phone is ringing.
-                        // We also flip playbackFailed so the VideoView is
-                        // hidden and the user just sees a black background
-                        // with the call buttons — they can still answer / reject.
-                        playbackFailed = true
-                        true
+                        Log.e("CallVideoScreen", "VideoView playback error for $videoPath")
+                        false
                     }
                     videoViewRef = this
                 }
             },
+            update = { view ->
+                // Poll for trimEndMs
+                if (trimEndMs > 0 && trimEndMs > trimStartMs) {
+                    view.postDelayed(object : Runnable {
+                        override fun run() {
+                            try {
+                                if (view.isPlaying && view.currentPosition >= trimEndMs) {
+                                    view.seekTo(trimStartMs.coerceAtLeast(0).toInt())
+                                }
+                                view.postDelayed(this, 100)
+                            } catch (_: Exception) {}
+                        }
+                    }, 100)
+                }
+            },
             modifier = Modifier.fillMaxSize().scale(videoScale)
         )
-        } // end if (!playbackFailed)
 
-        // Trim loop: seeks the video back to trimStartMs whenever playback
-        // passes trimEndMs. Implemented via LaunchedEffect (not postDelayed)
-        // so it auto-cancels when the trim values change or the composable
-        // leaves the composition — no Runnable leak.
-        rememberTrimLoop(videoViewRef, trimStartMs, trimEndMs)
+        // Overlay video quality enhancement filter
+        VideoFilterOverlay(filter = videoFilter)
 
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val screenHeight = maxHeight
@@ -615,6 +506,68 @@ private fun CallVideoScreen(
                 videoViewRef?.stopPlayback()
             } catch (_: Exception) {}
         }
+    }
+}
+
+@Composable
+private fun VideoFilterOverlay(filter: String?, modifier: Modifier = Modifier) {
+    if (filter == null || filter == "normal") return
+    
+    val brush = when (filter.lowercase()) {
+        "vivid" -> {
+            androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFFFF5722).copy(alpha = 0.08f),
+                    Color(0xFFE040FB).copy(alpha = 0.05f),
+                    Color(0xFF00E5FF).copy(alpha = 0.08f)
+                )
+            )
+        }
+        "warm" -> {
+            androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFFFFB74D).copy(alpha = 0.16f),
+                    Color(0xFFFF9800).copy(alpha = 0.10f),
+                    Color(0xFFE65100).copy(alpha = 0.06f)
+                )
+            )
+        }
+        "cyberpunk" -> {
+            androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFF00F0FF).copy(alpha = 0.14f),
+                    Color(0xFFFF007F).copy(alpha = 0.16f),
+                    Color(0xFF7000FF).copy(alpha = 0.12f)
+                )
+            )
+        }
+        "hdr" -> {
+            androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = 0.06f),
+                    Color.Transparent,
+                    Color.Black.copy(alpha = 0.22f)
+                )
+            )
+        }
+        "noir" -> {
+            androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFF3E2723).copy(alpha = 0.18f),
+                    Color(0xFF212121).copy(alpha = 0.22f),
+                    Color(0xFF0D0D0D).copy(alpha = 0.28f)
+                )
+            )
+        }
+        else -> null
+    }
+
+    if (brush != null) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(brush)
+        )
     }
 }
 

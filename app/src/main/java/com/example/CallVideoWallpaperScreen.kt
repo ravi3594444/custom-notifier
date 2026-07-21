@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -647,9 +648,6 @@ fun VideoEditDialog(
     onDismiss: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    // Subscribe to isProcessing so the Save button can be disabled and the
-    // loading chip can be shown while saveVideoEdits() runs.
-    val isProcessing by viewModel.isProcessing.collectAsState()
     
     var startMs by remember { mutableStateOf(video.trimStartMs?.toString() ?: "0") }
     var endMs by remember { mutableStateOf(video.trimEndMs?.toString() ?: video.durationMs.toString()) }
@@ -682,6 +680,12 @@ fun VideoEditDialog(
     var bgBaseColorHex by remember { mutableStateOf(initialBgHex) }
     var bgAlpha by remember { mutableStateOf(initialAlpha) }
     var isFullPreview by remember { mutableStateOf(false) }
+    var videoFilter by remember { mutableStateOf(video.videoFilter ?: "normal") }
+    var trimRange by remember {
+        val sVal = startMs.toFloatOrNull() ?: 0f
+        val eVal = endMs.toFloatOrNull() ?: video.durationMs.toFloat()
+        mutableStateOf(sVal..eVal)
+    }
     
     val audioPicker = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
@@ -699,13 +703,6 @@ fun VideoEditDialog(
             else -> androidx.compose.ui.text.font.FontFamily.SansSerif
         }
     }
-
-    // VideoView refs for the full-screen preview and the split-screen editor.
-    // Both are passed to rememberTrimLoop() so the trim polling happens via
-    // LaunchedEffect (auto-cancels on recomposition) instead of the old
-    // postDelayed-Runnable pattern that leaked Runnables on every recompose.
-    val fullScreenVideoRef = remember { mutableStateOf<android.widget.VideoView?>(null) }
-    val splitScreenVideoRef = remember { mutableStateOf<android.widget.VideoView?>(null) }
 
     // Dynamic ARGB text and background colors computed on state updates
     val parsedBgColor = remember(bgBaseColorHex, bgAlpha) {
@@ -766,20 +763,40 @@ fun VideoEditDialog(
                                         }
                                         start()
                                     }
-                                    fullScreenVideoRef.value = this
+                                }
+                            },
+                            update = { view ->
+                                val sMs = startMs.toLongOrNull() ?: 0L
+                                val eMs = endMs.toLongOrNull() ?: 0L
+                                
+                                val lastStart = view.getTag(context.hashCode()) as? Long ?: -1L
+                                if (lastStart != sMs) {
+                                    view.setTag(context.hashCode(), sMs)
+                                    try {
+                                        view.seekTo(sMs.toInt())
+                                    } catch (_: Exception) {}
+                                }
+
+                                if (eMs > 0 && eMs > sMs) {
+                                    view.postDelayed(object : Runnable {
+                                        override fun run() {
+                                            try {
+                                                if (view.isPlaying && view.currentPosition >= eMs) {
+                                                    view.seekTo(sMs.coerceAtLeast(0).toInt())
+                                                }
+                                                view.postDelayed(this, 100)
+                                            } catch (_: Exception) {}
+                                        }
+                                    }, 100)
                                 }
                             },
                             modifier = Modifier
                                 .fillMaxSize()
                                 .scale(videoScale)
                         )
-                        // Trim polling for full-screen preview — LaunchedEffect
-                        // based, no Runnable leak.
-                        rememberTrimLoop(
-                            videoView = fullScreenVideoRef.value,
-                            startMs = startMs.toLongOrNull() ?: 0L,
-                            endMs = endMs.toLongOrNull() ?: 0L
-                        )
+
+                        // Visual Filter Overlay for Full Screen
+                        VideoFilterOverlay(filter = videoFilter)
 
                         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                             val fullHeight = maxHeight
@@ -893,39 +910,31 @@ fun VideoEditDialog(
                         ) {
                             TextButton(onClick = onDismiss) { Text("Cancel") }
                             Text("Edit Wallpaper", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            TextButton(
-                                enabled = !isProcessing,
-                                onClick = {
-                                    // Delegate the save to the ViewModel so:
-                                    //   - the audio import runs on Dispatchers.IO
-                                    //     (previously this was on the main thread
-                                    //     and could ANR on large audio files),
-                                    //   - a failed audio import no longer silently
-                                    //     overwrites the existing customAudioPath
-                                    //     with null,
-                                    //   - we get a loading state via isProcessing,
-                                    //   - the dialog only dismisses when the save
-                                    //     actually completes.
-                                    viewModel.saveVideoEdits(
-                                        context = context,
-                                        userEmail = userEmail,
-                                        originalVideo = video,
-                                        trimStartMs = startMs.toLongOrNull(),
-                                        trimEndMs = endMs.toLongOrNull(),
-                                        videoScale = videoScale,
-                                        namePositionY = namePositionY,
-                                        answerStyle = answerStyle,
-                                        nameFontSize = nameFontSize,
-                                        nameFontFamily = nameFontFamily,
-                                        nameTextColor = parsedTextColor,
-                                        nameBgColor = parsedBgColor,
-                                        customAudioUri = customAudioUri,
-                                        onComplete = { success ->
-                                            if (success) onDismiss()
-                                        }
-                                    )
+                            TextButton(onClick = {
+                                val parsedStart = startMs.toLongOrNull()
+                                val parsedEnd = endMs.toLongOrNull()
+                                
+                                var finalAudioPath = video.customAudioPath
+                                if (customAudioUri != null) {
+                                    finalAudioPath = VideoLibraryManager.importAudioForVideo(context, customAudioUri!!)
                                 }
-                            ) {
+                                
+                                val updatedVideo = video.copy(
+                                    trimStartMs = parsedStart,
+                                    trimEndMs = parsedEnd,
+                                    customAudioPath = finalAudioPath,
+                                    videoScale = videoScale,
+                                    namePositionY = namePositionY,
+                                    answerStyle = answerStyle,
+                                    nameFontSize = nameFontSize,
+                                    nameFontFamily = nameFontFamily,
+                                    nameTextColor = parsedTextColor,
+                                    nameBgColor = parsedBgColor,
+                                    videoFilter = videoFilter
+                                )
+                                viewModel.updateSavedVideo(context, userEmail, updatedVideo)
+                                onDismiss()
+                            }) {
                                 Text("Save", fontWeight = FontWeight.Bold)
                             }
                         }
@@ -982,20 +991,40 @@ fun VideoEditDialog(
                                                 }
                                                 start()
                                             }
-                                            splitScreenVideoRef.value = this
+                                        }
+                                    },
+                                    update = { view ->
+                                        val sMs = startMs.toLongOrNull() ?: 0L
+                                        val eMs = endMs.toLongOrNull() ?: 0L
+                                        
+                                        val lastStart = view.getTag(context.hashCode()) as? Long ?: -1L
+                                        if (lastStart != sMs) {
+                                            view.setTag(context.hashCode(), sMs)
+                                            try {
+                                                view.seekTo(sMs.toInt())
+                                            } catch (_: Exception) {}
+                                        }
+
+                                        if (eMs > 0 && eMs > sMs) {
+                                            view.postDelayed(object : Runnable {
+                                                override fun run() {
+                                                    try {
+                                                        if (view.isPlaying && view.currentPosition >= eMs) {
+                                                            view.seekTo(sMs.coerceAtLeast(0).toInt())
+                                                        }
+                                                        view.postDelayed(this, 100)
+                                                    } catch (_: Exception) {}
+                                                }
+                                            }, 100)
                                         }
                                     },
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .scale(videoScale)
                                 )
-                                // Trim polling for split-screen editor — LaunchedEffect
-                                // based, no Runnable leak.
-                                rememberTrimLoop(
-                                    videoView = splitScreenVideoRef.value,
-                                    startMs = startMs.toLongOrNull() ?: 0L,
-                                    endMs = endMs.toLongOrNull() ?: 0L
-                                )
+
+                                // Visual Filter Overlay for Card Preview
+                                VideoFilterOverlay(filter = videoFilter)
 
                                 // 2. Interactive draggable caller name overlay
                                 Box(
@@ -1153,12 +1182,13 @@ fun VideoEditDialog(
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     val textPresets = listOf(
+                                        "#000000" to "Black",
+                                        "#333333" to "Charcoal",
                                         "#FFFFFF" to "White",
                                         "#F5F5F7" to "Alabaster",
                                         "#E6C79C" to "Gold",
                                         "#E0F7FA" to "Ice",
-                                        "#FFD1DC" to "Rose",
-                                        "#E8F5E9" to "Mint"
+                                        "#FFD1DC" to "Rose"
                                     )
                                     textPresets.forEach { (hex, label) ->
                                         val isSelected = selectedTextColorHex.equals(hex, ignoreCase = true)
@@ -1178,7 +1208,7 @@ fun VideoEditDialog(
                                                 Icon(
                                                     imageVector = Icons.Default.CheckCircle,
                                                     contentDescription = "Selected",
-                                                    tint = if (hex.equals("#FFFFFF", ignoreCase = true) || hex.equals("#F5F5F7", ignoreCase = true) || hex.equals("#E0F7FA", ignoreCase = true)) Color.DarkGray else Color.White,
+                                                    tint = if (hex.equals("#000000", ignoreCase = true) || hex.equals("#333333", ignoreCase = true)) Color.White else Color.DarkGray,
                                                     modifier = Modifier.size(20.dp)
                                                 )
                                             }
@@ -1288,73 +1318,112 @@ fun VideoEditDialog(
                                 )
                             }
                             
-                            // Trimming controls — a RangeSlider with time-formatted
-                            // labels, plus the raw-ms text fields as a power-user
-                            // escape hatch. Previously these were just two raw-ms
-                            // text fields, which expected the user to mentally
-                            // compute "3.5 seconds = 3500ms" — most users couldn't
-                            // figure it out and trim felt broken. The slider also
-                            // validates input (A9): the user can't drag past the
-                            // video duration or set start >= end.
-                            //
-                            // Helper: format ms as m:ss.s (one decimal place).
-                            val formatTrimTime: (Long) -> String = { ms ->
-                                val totalSeconds = ms / 1000.0
-                                val minutes = (totalSeconds / 60).toInt()
-                                val seconds = totalSeconds - minutes * 60
-                                String.format(java.util.Locale.US, "%d:%04.1f", minutes, seconds)
-                            }
-                            val durationMsLong = video.durationMs.coerceAtLeast(1L)
-                            val startMsLong = (startMs.toLongOrNull() ?: 0L).coerceIn(0L, durationMsLong)
-                            val endMsLong = (endMs.toLongOrNull() ?: durationMsLong).coerceIn(0L, durationMsLong)
-                            // RangeSlider requires start <= end; guard against the
-                            // user typing invalid values into the text fields.
-                            val safeStart = startMsLong.coerceAtMost(endMsLong)
-                            val safeEnd = endMsLong.coerceAtLeast(startMsLong)
+                            // Visual Trimming Timeline RangeSlider with fine-tuning direct inputs
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Video Trimming Timeline",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = "${String.format(java.util.Locale.US, "%.1f", trimRange.start / 1000f)}s - ${String.format(java.util.Locale.US, "%.1f", trimRange.endInclusive / 1000f)}s",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
 
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                Text(
-                                    text = "Trim: ${formatTrimTime(safeStart)} → ${formatTrimTime(safeEnd)}  (of ${formatTrimTime(durationMsLong)})",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
                                 androidx.compose.material3.RangeSlider(
-                                    value = safeStart.toFloat()..safeEnd.toFloat(),
+                                    value = trimRange,
                                     onValueChange = { range ->
-                                        // Update the string state — the text fields
-                                        // below will re-render with the new values.
-                                        startMs = range.start.toLong().toString()
-                                        endMs = range.endInclusive.toLong().toString()
+                                        trimRange = range
+                                        startMs = range.start.roundToInt().toString()
+                                        endMs = range.endInclusive.roundToInt().toString()
                                     },
-                                    valueRange = 0f..durationMsLong.toFloat(),
-                                    // 100ms steps — fine-grained enough for ringtone-
-                                    // style trims without making the slider feel jumpy.
-                                    steps = ((durationMsLong / 100).toInt() - 1).coerceAtLeast(0)
+                                    valueRange = 0f..video.durationMs.toFloat(),
+                                    modifier = Modifier.fillMaxWidth()
                                 )
+
                                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                     androidx.compose.material3.OutlinedTextField(
                                         value = startMs,
-                                        onValueChange = { newValue ->
-                                            // Only accept digits so the slider state stays sane.
-                                            val filtered = newValue.filter { it.isDigit() }
-                                            startMs = filtered
+                                        onValueChange = {
+                                            startMs = it
+                                            val sVal = it.toFloatOrNull() ?: 0f
+                                            trimRange = sVal.coerceIn(0f, trimRange.endInclusive)..trimRange.endInclusive
                                         },
-                                        label = { Text("Start (ms) — ${formatTrimTime((startMs.toLongOrNull() ?: 0L).coerceIn(0L, durationMsLong))}") },
+                                        label = { Text("Start (ms)") },
                                         modifier = Modifier.weight(1f),
-                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                                        singleLine = true
+                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
                                     )
                                     androidx.compose.material3.OutlinedTextField(
                                         value = endMs,
-                                        onValueChange = { newValue ->
-                                            val filtered = newValue.filter { it.isDigit() }
-                                            endMs = filtered
+                                        onValueChange = {
+                                            endMs = it
+                                            val eVal = it.toFloatOrNull() ?: video.durationMs.toFloat()
+                                            trimRange = trimRange.start..eVal.coerceIn(trimRange.start, video.durationMs.toFloat())
                                         },
-                                        label = { Text("End (ms) — ${formatTrimTime((endMs.toLongOrNull() ?: durationMsLong).coerceIn(0L, durationMsLong))}") },
+                                        label = { Text("End (ms)") },
                                         modifier = Modifier.weight(1f),
-                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                                        singleLine = true
+                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
                                     )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // Video Enhancer Filters selector
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text("Video Quality Enhancer Filters", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                                        .padding(8.dp)
+                                        .horizontalScroll(androidx.compose.foundation.rememberScrollState())
+                                ) {
+                                    val filters = listOf(
+                                        "normal" to "Original",
+                                        "vivid" to "Vivid Pop",
+                                        "warm" to "Cinematic",
+                                        "cyberpunk" to "Cyberpunk",
+                                        "hdr" to "HDR Contrast",
+                                        "noir" to "Noir B&W"
+                                    )
+                                    filters.forEach { (filterKey, filterName) ->
+                                        val isSelected = videoFilter.equals(filterKey, ignoreCase = true)
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                                                .border(
+                                                    width = 1.dp,
+                                                    color = if (isSelected) Color.Transparent else Color.Gray.copy(alpha = 0.4f),
+                                                    shape = RoundedCornerShape(16.dp)
+                                                )
+                                                .clickable { videoFilter = filterKey }
+                                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                                        ) {
+                                            Text(
+                                                text = filterName,
+                                                color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    }
                                 }
                             }
 
@@ -1374,5 +1443,67 @@ fun VideoEditDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun VideoFilterOverlay(filter: String?, modifier: Modifier = Modifier) {
+    if (filter == null || filter == "normal") return
+    
+    val brush = when (filter.lowercase()) {
+        "vivid" -> {
+            androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFFFF5722).copy(alpha = 0.08f),
+                    Color(0xFFE040FB).copy(alpha = 0.05f),
+                    Color(0xFF00E5FF).copy(alpha = 0.08f)
+                )
+            )
+        }
+        "warm" -> {
+            androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFFFFB74D).copy(alpha = 0.16f),
+                    Color(0xFFFF9800).copy(alpha = 0.10f),
+                    Color(0xFFE65100).copy(alpha = 0.06f)
+                )
+            )
+        }
+        "cyberpunk" -> {
+            androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFF00F0FF).copy(alpha = 0.14f),
+                    Color(0xFFFF007F).copy(alpha = 0.16f),
+                    Color(0xFF7000FF).copy(alpha = 0.12f)
+                )
+            )
+        }
+        "hdr" -> {
+            androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = 0.06f),
+                    Color.Transparent,
+                    Color.Black.copy(alpha = 0.22f)
+                )
+            )
+        }
+        "noir" -> {
+            androidx.compose.ui.graphics.Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFF3E2723).copy(alpha = 0.18f),
+                    Color(0xFF212121).copy(alpha = 0.22f),
+                    Color(0xFF0D0D0D).copy(alpha = 0.28f)
+                )
+            )
+        }
+        else -> null
+    }
+
+    if (brush != null) {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(brush)
+        )
     }
 }

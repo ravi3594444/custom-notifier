@@ -82,6 +82,7 @@ class CallVideoReceiver : BroadcastReceiver() {
                 if (activeVideo.nameFontFamily != null) putExtra(CallVideoActivity.EXTRA_NAME_FONT_FAMILY, activeVideo.nameFontFamily)
                 if (activeVideo.nameTextColor != null) putExtra(CallVideoActivity.EXTRA_NAME_TEXT_COLOR, activeVideo.nameTextColor)
                 if (activeVideo.nameBgColor != null) putExtra(CallVideoActivity.EXTRA_NAME_BG_COLOR, activeVideo.nameBgColor)
+                if (activeVideo.videoFilter != null) putExtra(CallVideoActivity.EXTRA_VIDEO_FILTER, activeVideo.videoFilter)
             }
             context.startActivity(launchIntent)
             Log.d(TAG, "Launched CallVideoActivity for video: ${activeVideo.displayName}")

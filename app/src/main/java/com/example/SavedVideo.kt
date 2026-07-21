@@ -65,7 +65,9 @@ data class SavedVideo(
     /** Optional ARGB color for the caller name text. */
     val nameTextColor: Int? = null,
     /** Optional ARGB color for the caller name background (can be transparent). */
-    val nameBgColor: Int? = null
+    val nameBgColor: Int? = null,
+    /** Optional color/quality filter style: "normal", "vivid", "cinematic", "cyberpunk", "warm", "hdr", "noir" */
+    val videoFilter: String? = null
 )
 
 /**
@@ -275,12 +277,6 @@ object VideoLibraryManager {
         val current = loadAll(context, userEmail).toMutableList()
         val toRemove = current.firstOrNull { it.id == id } ?: return current
         try { File(toRemove.localFilePath).delete() } catch (_: Exception) {}
-        // Also delete the associated custom audio file (if any) — otherwise
-        // every video delete leaves a dangling audio_<uuid>.<ext> file in
-        // saved_videos/ that accumulates as a slow disk leak over weeks.
-        toRemove.customAudioPath?.let { audioPath ->
-            try { File(audioPath).delete() } catch (_: Exception) {}
-        }
         current.remove(toRemove)
         saveAll(context, userEmail, current)
         // If the removed entry was the active one, clear the active id.
