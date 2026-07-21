@@ -187,7 +187,11 @@ class CallVideoActivity : ComponentActivity() {
 
         // --- Read extras --------------------------------------------------
         videoPath = intent.getStringExtra(EXTRA_VIDEO_PATH)
-        videoDisplayName = intent.getStringExtra(EXTRA_VIDEO_DISPLAY_NAME) ?: "Incoming Call"
+        videoDisplayName = if (isPreviewMode) {
+            "Ravi"
+        } else {
+            intent.getStringExtra(EXTRA_VIDEO_DISPLAY_NAME) ?: "Incoming Call"
+        }
         videoMimeType = intent.getStringExtra(EXTRA_VIDEO_MIME_TYPE) ?: "video/*"
         trimStartMs = intent.getLongExtra(EXTRA_TRIM_START_MS, -1L)
         trimEndMs = intent.getLongExtra(EXTRA_TRIM_END_MS, -1L)

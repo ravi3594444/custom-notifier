@@ -324,7 +324,7 @@ fun CallVideoWallpaperScreen(
                             viewModel.stopVideoPreview()
                             val intent = android.content.Intent(context, CallVideoActivity::class.java).apply {
                                 putExtra(CallVideoActivity.EXTRA_VIDEO_PATH, video.localFilePath)
-                                putExtra(CallVideoActivity.EXTRA_VIDEO_DISPLAY_NAME, video.displayName)
+                                putExtra(CallVideoActivity.EXTRA_VIDEO_DISPLAY_NAME, "Ravi")
                                 putExtra(CallVideoActivity.EXTRA_VIDEO_MIME_TYPE, video.mimeType)
                                 putExtra(CallVideoActivity.EXTRA_IS_PREVIEW_MODE, true)
                                 if (video.trimStartMs != null) putExtra(CallVideoActivity.EXTRA_TRIM_START_MS, video.trimStartMs)
@@ -802,7 +802,7 @@ fun VideoEditDialog(
                                     .padding(horizontal = 16.dp, vertical = 8.dp)
                             ) {
                                 Text(
-                                    text = video.displayName,
+                                    text = "Ravi",
                                     color = Color(parsedTextColor),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = nameFontSize.sp,
@@ -1015,7 +1015,7 @@ fun VideoEditDialog(
                                         .padding(horizontal = 12.dp, vertical = 6.dp)
                                 ) {
                                     Text(
-                                        text = video.displayName,
+                                        text = "Ravi",
                                         color = Color(parsedTextColor),
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = (nameFontSize * 0.85f).sp, // Scaled for mockup
