@@ -647,6 +647,9 @@ fun VideoEditDialog(
     onDismiss: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
+    // Subscribe to isProcessing so the Save button can be disabled and the
+    // loading chip can be shown while saveVideoEdits() runs.
+    val isProcessing by viewModel.isProcessing.collectAsState()
     
     var startMs by remember { mutableStateOf(video.trimStartMs?.toString() ?: "0") }
     var endMs by remember { mutableStateOf(video.trimEndMs?.toString() ?: video.durationMs.toString()) }
@@ -890,30 +893,39 @@ fun VideoEditDialog(
                         ) {
                             TextButton(onClick = onDismiss) { Text("Cancel") }
                             Text("Edit Wallpaper", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                            TextButton(onClick = {
-                                val parsedStart = startMs.toLongOrNull()
-                                val parsedEnd = endMs.toLongOrNull()
-                                
-                                var finalAudioPath = video.customAudioPath
-                                if (customAudioUri != null) {
-                                    finalAudioPath = VideoLibraryManager.importAudioForVideo(context, customAudioUri!!)
+                            TextButton(
+                                enabled = !isProcessing,
+                                onClick = {
+                                    // Delegate the save to the ViewModel so:
+                                    //   - the audio import runs on Dispatchers.IO
+                                    //     (previously this was on the main thread
+                                    //     and could ANR on large audio files),
+                                    //   - a failed audio import no longer silently
+                                    //     overwrites the existing customAudioPath
+                                    //     with null,
+                                    //   - we get a loading state via isProcessing,
+                                    //   - the dialog only dismisses when the save
+                                    //     actually completes.
+                                    viewModel.saveVideoEdits(
+                                        context = context,
+                                        userEmail = userEmail,
+                                        originalVideo = video,
+                                        trimStartMs = startMs.toLongOrNull(),
+                                        trimEndMs = endMs.toLongOrNull(),
+                                        videoScale = videoScale,
+                                        namePositionY = namePositionY,
+                                        answerStyle = answerStyle,
+                                        nameFontSize = nameFontSize,
+                                        nameFontFamily = nameFontFamily,
+                                        nameTextColor = parsedTextColor,
+                                        nameBgColor = parsedBgColor,
+                                        customAudioUri = customAudioUri,
+                                        onComplete = { success ->
+                                            if (success) onDismiss()
+                                        }
+                                    )
                                 }
-                                
-                                val updatedVideo = video.copy(
-                                    trimStartMs = parsedStart,
-                                    trimEndMs = parsedEnd,
-                                    customAudioPath = finalAudioPath,
-                                    videoScale = videoScale,
-                                    namePositionY = namePositionY,
-                                    answerStyle = answerStyle,
-                                    nameFontSize = nameFontSize,
-                                    nameFontFamily = nameFontFamily,
-                                    nameTextColor = parsedTextColor,
-                                    nameBgColor = parsedBgColor
-                                )
-                                viewModel.updateSavedVideo(context, userEmail, updatedVideo)
-                                onDismiss()
-                            }) {
+                            ) {
                                 Text("Save", fontWeight = FontWeight.Bold)
                             }
                         }
