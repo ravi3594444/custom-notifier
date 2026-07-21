@@ -1288,22 +1288,74 @@ fun VideoEditDialog(
                                 )
                             }
                             
-                            // Trimming controls
-                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                androidx.compose.material3.OutlinedTextField(
-                                    value = startMs,
-                                    onValueChange = { startMs = it },
-                                    label = { Text("Start (ms)") },
-                                    modifier = Modifier.weight(1f),
-                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                            // Trimming controls — a RangeSlider with time-formatted
+                            // labels, plus the raw-ms text fields as a power-user
+                            // escape hatch. Previously these were just two raw-ms
+                            // text fields, which expected the user to mentally
+                            // compute "3.5 seconds = 3500ms" — most users couldn't
+                            // figure it out and trim felt broken. The slider also
+                            // validates input (A9): the user can't drag past the
+                            // video duration or set start >= end.
+                            //
+                            // Helper: format ms as m:ss.s (one decimal place).
+                            val formatTrimTime: (Long) -> String = { ms ->
+                                val totalSeconds = ms / 1000.0
+                                val minutes = (totalSeconds / 60).toInt()
+                                val seconds = totalSeconds - minutes * 60
+                                String.format(java.util.Locale.US, "%d:%04.1f", minutes, seconds)
+                            }
+                            val durationMsLong = video.durationMs.coerceAtLeast(1L)
+                            val startMsLong = (startMs.toLongOrNull() ?: 0L).coerceIn(0L, durationMsLong)
+                            val endMsLong = (endMs.toLongOrNull() ?: durationMsLong).coerceIn(0L, durationMsLong)
+                            // RangeSlider requires start <= end; guard against the
+                            // user typing invalid values into the text fields.
+                            val safeStart = startMsLong.coerceAtMost(endMsLong)
+                            val safeEnd = endMsLong.coerceAtLeast(startMsLong)
+
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Text(
+                                    text = "Trim: ${formatTrimTime(safeStart)} → ${formatTrimTime(safeEnd)}  (of ${formatTrimTime(durationMsLong)})",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
                                 )
-                                androidx.compose.material3.OutlinedTextField(
-                                    value = endMs,
-                                    onValueChange = { endMs = it },
-                                    label = { Text("End (ms)") },
-                                    modifier = Modifier.weight(1f),
-                                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                                androidx.compose.material3.RangeSlider(
+                                    value = safeStart.toFloat()..safeEnd.toFloat(),
+                                    onValueChange = { range ->
+                                        // Update the string state — the text fields
+                                        // below will re-render with the new values.
+                                        startMs = range.start.toLong().toString()
+                                        endMs = range.endInclusive.toLong().toString()
+                                    },
+                                    valueRange = 0f..durationMsLong.toFloat(),
+                                    // 100ms steps — fine-grained enough for ringtone-
+                                    // style trims without making the slider feel jumpy.
+                                    steps = ((durationMsLong / 100).toInt() - 1).coerceAtLeast(0)
                                 )
+                                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                    androidx.compose.material3.OutlinedTextField(
+                                        value = startMs,
+                                        onValueChange = { newValue ->
+                                            // Only accept digits so the slider state stays sane.
+                                            val filtered = newValue.filter { it.isDigit() }
+                                            startMs = filtered
+                                        },
+                                        label = { Text("Start (ms) — ${formatTrimTime((startMs.toLongOrNull() ?: 0L).coerceIn(0L, durationMsLong))}") },
+                                        modifier = Modifier.weight(1f),
+                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                                        singleLine = true
+                                    )
+                                    androidx.compose.material3.OutlinedTextField(
+                                        value = endMs,
+                                        onValueChange = { newValue ->
+                                            val filtered = newValue.filter { it.isDigit() }
+                                            endMs = filtered
+                                        },
+                                        label = { Text("End (ms) — ${formatTrimTime((endMs.toLongOrNull() ?: durationMsLong).coerceIn(0L, durationMsLong))}") },
+                                        modifier = Modifier.weight(1f),
+                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                                        singleLine = true
+                                    )
+                                }
                             }
 
                             // Custom Audio Picker
