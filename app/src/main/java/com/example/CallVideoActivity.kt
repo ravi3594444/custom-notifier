@@ -11,6 +11,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.VideoView
 import androidx.activity.ComponentActivity
+import androidx.activity.addCallback
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -282,6 +283,32 @@ class CallVideoActivity : ComponentActivity() {
             telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
             registerCallStateListener()
         }
+
+        // Block back button — the user must use Accept/Dismiss to leave
+        // this screen. Pressing back during an incoming call would drop
+        // them into a confusing half-video / half-call-screen state.
+        //
+        // We use OnBackPressedDispatcher.addCallback (the modern,
+        // predictive-back-safe API) instead of overriding onBackPressed()
+        // directly. The legacy override still works today but is fragile:
+        // it relies on android:enableOnBackInvokedCallback defaulting to
+        // false, and if a future Android release forces predictive back
+        // the override would silently stop intercepting the back gesture.
+        // The callback approach is the supported, future-proof way to
+        // block back navigation.
+        //
+        // In preview mode we DO allow back — the user might be stuck on
+        // the preview screen (e.g. high videoScale pushed buttons
+        // off-screen) and needs an escape hatch. In real-call mode the
+        // only ways out are the Accept / Dismiss buttons or the call
+        // ending.
+        onBackPressedDispatcher.addCallback(this) {
+            if (isPreviewMode) {
+                isEnabled = false
+                onBackPressedDispatcher.onBackPressed()
+            }
+            // else: intentionally consume the back gesture and do nothing.
+        }
     }
 
     /**
@@ -380,15 +407,6 @@ class CallVideoActivity : ComponentActivity() {
         // (e.g. process killed before onStop ran). No-op if already
         // unregistered.
         unregisterCallStateListener()
-    }
-
-    // Block back button — the user must use Accept/Dismiss to leave this
-    // screen. Pressing back during an incoming call would drop them into
-    // a confusing half-video / half-call-screen state.
-    @Suppress("DEPRECATION")
-    @android.annotation.SuppressLint("MissingSuperCall", "GestureBackNavigation")
-    override fun onBackPressed() {
-        // Intentionally do nothing.
     }
 }
 
