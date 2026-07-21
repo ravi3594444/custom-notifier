@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.VideoCall
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -74,6 +75,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.ComponentName
 import android.content.pm.ServiceInfo
+import android.telecom.TelecomManager
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clipToBounds
@@ -401,6 +403,9 @@ fun CallVideoWallpaperScreen(
             }
         }
 
+        // --- InCallService Setup Card --------------------------------
+        InCallServiceSetupCard()
+
         // --- Upload button ---------------------------------------------
         Button(
             onClick = {
@@ -590,6 +595,141 @@ private fun FullScreenIntentWarningCard(onOpenSettings: () -> Unit) {
         }
     }
 }
+
+/**
+ * Card that guides the user to set the app as "Default Caller ID & Spam App"
+ * to enable full call interception via InCallService.
+ */
+@Composable
+private fun InCallServiceSetupCard() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
+    // Check if our app is currently the default dialer
+    val isDefaultDialer = remember {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val telecomManager = context.getSystemService(Context.TELECOM_SERVICE) as? TelecomManager
+                val componentName = telecomManager?.defaultDialerPackage
+                componentName == context.packageName
+            } else {
+                false
+            }
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    if (!isDefaultDialer) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Phone,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Set as Caller ID & Spam App",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = "To show video wallpapers on real calls, set Custom Notifier as your Default Caller ID & Spam App in Android Settings.",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                Text(
+                    text = "This allows the app to intercept calls and show your chosen video when someone calls you.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Button(
+                    onClick = {
+                        try {
+                            // Open the app's phone settings where user can set it as default dialer
+                            val intent = Intent(TelecomManager.ACTION_CONFIGURE_TELECOM_HANDOVER).apply {
+                                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            // Fallback: try to open the default phone app settings
+                            try {
+                                val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                    data = Uri.parse("package:${context.packageName}")
+                                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                context.startActivity(intent)
+                            } catch (_: Exception) {}
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text("Open Android Phone Settings", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    } else {
+        // Show success card when app is set as default dialer
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFF4CAF50).copy(alpha = 0.15f)
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = Color(0xFF4CAF50),
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "Call Video Wallpaper is Active! Videos will play when calls come in.",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF2E7D32)
+                )
+            }
+        }
+    }
+}
+
+private typealias Intent = android.content.Intent
+private typealias Uri = android.net.Uri
+private typealias Color = androidx.compose.ui.graphics.Color
 
 @Composable
 private fun EmptyVideoLibraryState() {

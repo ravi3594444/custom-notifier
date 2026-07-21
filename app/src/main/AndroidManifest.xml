@@ -100,6 +100,25 @@
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="phoneCall" />
+
+        <!-- InCallService - This is the PROPER way to intercept calls!
+             User must set this app as "Default Caller ID & Spam App" in Settings.
+             
+             This gives us full control over incoming calls:
+             - Receive onCallAdded() when call comes in
+             - Use call.answer() and call.reject() directly
+             - No need for foreground service or broadcast receiver
+             
+             The BIND_INCALL_SERVICE permission allows us to be a call handling app. -->
+        <service
+            android:name=".CallInCallService"
+            android:permission="android.permission.BIND_INCALL_SERVICE"
+            android:exported="true"
+            android:foregroundServiceType="phoneCall">
+            <meta-data
+                android:name="android.telecom.INCALL_SERVICE_UI"
+                android:value="true" />
+        </service>
     </application>
 
 </manifest>

@@ -112,6 +112,12 @@ class CallVideoActivity : ComponentActivity() {
          */
         const val EXTRA_CONFIG = "extra_call_video_config"
 
+        /** Action to finish the video activity */
+        const val ACTION_FINISH = "com.example.action.FINISH_VIDEO_ACTIVITY"
+        
+        /** Extra to indicate this was launched from InCallService */
+        const val EXTRA_FROM_INCALL_SERVICE = "extra_from_incall_service"
+
         @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_VIDEO_PATH = "extra_video_path"
         @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
@@ -375,11 +381,15 @@ class CallVideoActivity : ComponentActivity() {
                     if (isPreviewMode) {
                         finish()
                     } else {
-                        val ok = CallVideoController.answerCall(this)
-                        if (!ok) {
-                            // Fallback: open the system call screen so the user
-                            // can answer there.
-                            CallVideoController.openSystemCallScreen(this)
+                        // If launched from InCallService, use it to answer the call
+                        if (CallInCallService.currentCall != null) {
+                            CallInCallService.answerCall()
+                        } else {
+                            // Fallback: use CallVideoController
+                            val ok = CallVideoController.answerCall(this)
+                            if (!ok) {
+                                CallVideoController.openSystemCallScreen(this)
+                            }
                         }
                         finish()
                     }
@@ -388,9 +398,15 @@ class CallVideoActivity : ComponentActivity() {
                     if (isPreviewMode) {
                         finish()
                     } else {
-                        val ok = CallVideoController.rejectCall(this)
-                        if (!ok) {
-                            CallVideoController.openSystemCallScreen(this)
+                        // If launched from InCallService, use it to reject the call
+                        if (CallInCallService.currentCall != null) {
+                            CallInCallService.rejectCall()
+                        } else {
+                            // Fallback: use CallVideoController
+                            val ok = CallVideoController.rejectCall(this)
+                            if (!ok) {
+                                CallVideoController.openSystemCallScreen(this)
+                            }
                         }
                         finish()
                     }
