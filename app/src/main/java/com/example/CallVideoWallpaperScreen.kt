@@ -697,6 +697,13 @@ fun VideoEditDialog(
         }
     }
 
+    // VideoView refs for the full-screen preview and the split-screen editor.
+    // Both are passed to rememberTrimLoop() so the trim polling happens via
+    // LaunchedEffect (auto-cancels on recomposition) instead of the old
+    // postDelayed-Runnable pattern that leaked Runnables on every recompose.
+    val fullScreenVideoRef = remember { mutableStateOf<android.widget.VideoView?>(null) }
+    val splitScreenVideoRef = remember { mutableStateOf<android.widget.VideoView?>(null) }
+
     // Dynamic ARGB text and background colors computed on state updates
     val parsedBgColor = remember(bgBaseColorHex, bgAlpha) {
         if (bgBaseColorHex == "transparent") {
@@ -756,27 +763,19 @@ fun VideoEditDialog(
                                         }
                                         start()
                                     }
-                                }
-                            },
-                            update = { view ->
-                                val sMs = startMs.toLongOrNull() ?: 0L
-                                val eMs = endMs.toLongOrNull() ?: 0L
-                                if (eMs > 0 && eMs > sMs) {
-                                    view.postDelayed(object : Runnable {
-                                        override fun run() {
-                                            try {
-                                                if (view.isPlaying && view.currentPosition >= eMs) {
-                                                    view.seekTo(sMs.coerceAtLeast(0).toInt())
-                                                }
-                                                view.postDelayed(this, 100)
-                                            } catch (_: Exception) {}
-                                        }
-                                    }, 100)
+                                    fullScreenVideoRef.value = this
                                 }
                             },
                             modifier = Modifier
                                 .fillMaxSize()
                                 .scale(videoScale)
+                        )
+                        // Trim polling for full-screen preview — LaunchedEffect
+                        // based, no Runnable leak.
+                        rememberTrimLoop(
+                            videoView = fullScreenVideoRef.value,
+                            startMs = startMs.toLongOrNull() ?: 0L,
+                            endMs = endMs.toLongOrNull() ?: 0L
                         )
 
                         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -971,27 +970,19 @@ fun VideoEditDialog(
                                                 }
                                                 start()
                                             }
-                                        }
-                                    },
-                                    update = { view ->
-                                        val sMs = startMs.toLongOrNull() ?: 0L
-                                        val eMs = endMs.toLongOrNull() ?: 0L
-                                        if (eMs > 0 && eMs > sMs) {
-                                            view.postDelayed(object : Runnable {
-                                                override fun run() {
-                                                    try {
-                                                        if (view.isPlaying && view.currentPosition >= eMs) {
-                                                            view.seekTo(sMs.coerceAtLeast(0).toInt())
-                                                        }
-                                                        view.postDelayed(this, 100)
-                                                    } catch (_: Exception) {}
-                                                }
-                                            }, 100)
+                                            splitScreenVideoRef.value = this
                                         }
                                     },
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .scale(videoScale)
+                                )
+                                // Trim polling for split-screen editor — LaunchedEffect
+                                // based, no Runnable leak.
+                                rememberTrimLoop(
+                                    videoView = splitScreenVideoRef.value,
+                                    startMs = startMs.toLongOrNull() ?: 0L,
+                                    endMs = endMs.toLongOrNull() ?: 0L
                                 )
 
                                 // 2. Interactive draggable caller name overlay

@@ -416,24 +416,15 @@ private fun CallVideoScreen(
                     videoViewRef = this
                 }
             },
-            update = { view ->
-                // Poll for trimEndMs
-                if (trimEndMs > 0 && trimEndMs > trimStartMs) {
-                    view.postDelayed(object : Runnable {
-                        override fun run() {
-                            try {
-                                if (view.isPlaying && view.currentPosition >= trimEndMs) {
-                                    view.seekTo(trimStartMs.coerceAtLeast(0).toInt())
-                                }
-                                view.postDelayed(this, 100)
-                            } catch (_: Exception) {}
-                        }
-                    }, 100)
-                }
-            },
             modifier = Modifier.fillMaxSize().scale(videoScale)
         )
         } // end if (!playbackFailed)
+
+        // Trim loop: seeks the video back to trimStartMs whenever playback
+        // passes trimEndMs. Implemented via LaunchedEffect (not postDelayed)
+        // so it auto-cancels when the trim values change or the composable
+        // leaves the composition — no Runnable leak.
+        rememberTrimLoop(videoViewRef, trimStartMs, trimEndMs)
 
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val screenHeight = maxHeight
