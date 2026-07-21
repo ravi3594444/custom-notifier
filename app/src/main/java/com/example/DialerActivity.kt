@@ -1,10 +1,10 @@
 package com.example
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
-import androidx.appcompat.app.AppCompatActivity
 
 /**
  * This is a "trampoline" activity that acts as the default dialer.
@@ -15,7 +15,7 @@ import androidx.appcompat.app.AppCompatActivity
  * 
  * This allows users to keep using their normal dialer while we handle incoming calls.
  */
-class DialerActivity : AppCompatActivity() {
+class DialerActivity : Activity() {
     
     companion object {
         private const val TAG = "DialerActivity"
