@@ -328,6 +328,12 @@ private fun CallVideoScreen(
     onDismiss: () -> Unit
 ) {
     var videoViewRef by remember { mutableStateOf<VideoView?>(null) }
+    // Tracks whether video playback has failed. When true, the VideoView is
+    // hidden (the screen falls back to a black background with the Accept /
+    // Dismiss buttons still visible). This prevents the system's "Can't play
+    // this video" modal from blocking the call controls — which would be
+    // catastrophic during an incoming call.
+    var playbackFailed by remember { mutableStateOf(false) }
     
     val callerFontFamily = remember(nameFontFamily) {
         when (nameFontFamily.lowercase()) {
@@ -364,16 +370,21 @@ private fun CallVideoScreen(
             .background(Color.Black)
     ) {
         // --- Video view (fills the whole screen) -------------------------
-        AndroidView(
-            factory = { ctx ->
-                VideoView(ctx).apply {
-                    // Set 32-bit high-quality color format to prevent color banding
-                    holder.setFormat(android.graphics.PixelFormat.RGBA_8888)
-                    setVideoURI(android.net.Uri.fromFile(File(videoPath)))
-                    setOnPreparedListener { mp ->
-                        mp.isLooping = true
-                        // Set high-fidelity scaling mode to scale and crop perfectly instead of stretching
-                        try {
+        // When playback fails we drop the VideoView entirely so the user
+        // just sees a black background with the Accept / Dismiss buttons
+        // still visible and tappable. The system's "Can't play this video"
+        // dialog is also suppressed (see setOnErrorListener above).
+        if (!playbackFailed) {
+            AndroidView(
+                factory = { ctx ->
+                    VideoView(ctx).apply {
+                        // Set 32-bit high-quality color format to prevent color banding
+                        holder.setFormat(android.graphics.PixelFormat.RGBA_8888)
+                        setVideoURI(android.net.Uri.fromFile(File(videoPath)))
+                        setOnPreparedListener { mp ->
+                            mp.isLooping = true
+                            // Set high-fidelity scaling mode to scale and crop perfectly instead of stretching
+                            try {
                             mp.setVideoScalingMode(android.media.MediaPlayer.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING)
                         } catch (e: Exception) {
                             Log.e("CallVideoScreen", "Error setting video scaling mode", e)
@@ -391,8 +402,16 @@ private fun CallVideoScreen(
                         start()
                     }
                     setOnErrorListener { _, _, _ ->
-                        Log.e("CallVideoScreen", "VideoView playback error for $videoPath")
-                        false
+                        Log.e("CallVideoScreen", "VideoView playback error for $videoPath — hiding video, keeping call buttons visible")
+                        // Returning true suppresses the system's built-in
+                        // "Can't play this video" dialog, which would otherwise
+                        // appear as a modal over the call screen and block the
+                        // Accept / Dismiss buttons while the phone is ringing.
+                        // We also flip playbackFailed so the VideoView is
+                        // hidden and the user just sees a black background
+                        // with the call buttons — they can still answer / reject.
+                        playbackFailed = true
+                        true
                     }
                     videoViewRef = this
                 }
@@ -414,6 +433,7 @@ private fun CallVideoScreen(
             },
             modifier = Modifier.fillMaxSize().scale(videoScale)
         )
+        } // end if (!playbackFailed)
 
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val screenHeight = maxHeight
