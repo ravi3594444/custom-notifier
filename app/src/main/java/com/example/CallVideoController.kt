@@ -85,6 +85,7 @@ object CallVideoController {
      * invoke the endCall API (does NOT guarantee the call was actually
      * rejected on all OEMs).
      */
+    @android.annotation.SuppressLint("MissingPermission")
     fun rejectCall(context: Context): Boolean {
         // First, try to silence the ringer so the audio cuts immediately
         // even if endCall takes a moment to take effect.
@@ -137,6 +138,7 @@ object CallVideoController {
      * Reflectively obtains the hidden ITelephony interface from
      * TelephonyManager. Returns null on any failure.
      */
+    @android.annotation.SuppressLint("SoonBlockedPrivateApi")
     private fun getITelephony(context: Context): Any? {
         return try {
             val telephonyManager = context.getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager

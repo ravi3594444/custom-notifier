@@ -297,6 +297,8 @@ class CallVideoActivity : ComponentActivity() {
     // Block back button — the user must use Accept/Dismiss to leave this
     // screen. Pressing back during an incoming call would drop them into
     // a confusing half-video / half-call-screen state.
+    @Suppress("DEPRECATION")
+    @android.annotation.SuppressLint("MissingSuperCall", "GestureBackNavigation")
     override fun onBackPressed() {
         // Intentionally do nothing.
     }
