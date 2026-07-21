@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material.icons.filled.VideoCall
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -52,6 +53,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -69,6 +72,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.ComponentName
+import android.content.pm.ServiceInfo
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clipToBounds
@@ -167,6 +172,25 @@ fun CallVideoWallpaperScreen(
         viewModel.loadVideoLibrary(context, userEmail)
     }
 
+    // --- Check if call monitoring service is running -------------------
+    var isCallMonitoringEnabled by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        isCallMonitoringEnabled = am.getRunningServices(Integer.MAX_VALUE)
+            .any { it.service == ComponentName(context, CallMonitorService::class.java) }
+    }
+
+    // Also need POST_NOTIFICATIONS permission for Android 13+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            CallMonitorService.start(context)
+            isCallMonitoringEnabled = true
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -243,6 +267,85 @@ fun CallVideoWallpaperScreen(
             PermissionWarningCard(
                 onRequest = { permissionLauncher.launch(requiredPermissions) }
             )
+        }
+
+        // --- Call Monitoring Toggle Card -------------------------------
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isCallMonitoringEnabled) 
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = if (isCallMonitoringEnabled) Icons.Default.Notifications else Icons.Default.VideoCall,
+                        contentDescription = null,
+                        tint = if (isCallMonitoringEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Call Monitoring",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (isCallMonitoringEnabled) "Active - videos will play on calls" else "Enable to show videos on incoming calls",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Switch(
+                    checked = isCallMonitoringEnabled,
+                    onCheckedChange = { enabled ->
+                        if (enabled) {
+                            // Check for notification permission on Android 13+
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                val hasNotificationPermission = ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.POST_NOTIFICATIONS
+                                ) == PackageManager.PERMISSION_GRANTED
+                                
+                                if (hasNotificationPermission) {
+                                    CallMonitorService.start(context)
+                                    isCallMonitoringEnabled = true
+                                } else {
+                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                            } else {
+                                CallMonitorService.start(context)
+                                isCallMonitoringEnabled = true
+                            }
+                        } else {
+                            CallMonitorService.stop(context)
+                            isCallMonitoringEnabled = false
+                        }
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                )
+            }
         }
 
         // --- Full-Screen Intent warning (Android 14+) -----------------
@@ -772,6 +875,7 @@ fun VideoEditDialog(
     var bgAlpha by remember { mutableStateOf(initialAlpha) }
     var isFullPreview by remember { mutableStateOf(false) }
     var videoFilter by remember { mutableStateOf(video.videoFilter ?: "normal") }
+    var callerName by remember { mutableStateOf(video.callerName ?: "Ravi") }
     var trimRange by remember {
         val sVal = startMs.toFloatOrNull() ?: 0f
         val eVal = endMs.toFloatOrNull() ?: video.durationMs.toFloat()
@@ -912,7 +1016,7 @@ fun VideoEditDialog(
                                     .padding(horizontal = 16.dp, vertical = 8.dp)
                             ) {
                                 Text(
-                                    text = "Ravi",
+                                    text = callerName,
                                     color = Color(parsedTextColor),
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = nameFontSize.sp,
@@ -1016,6 +1120,7 @@ fun VideoEditDialog(
                                     customAudioPath = finalAudioPath,
                                     videoScale = videoScale,
                                     namePositionY = namePositionY,
+                                    callerName = callerName.ifBlank { "Ravi" },
                                     answerStyle = answerStyle,
                                     nameFontSize = nameFontSize,
                                     nameFontFamily = nameFontFamily,
@@ -1138,7 +1243,7 @@ fun VideoEditDialog(
                                         .padding(horizontal = 12.dp, vertical = 6.dp)
                                 ) {
                                     Text(
-                                        text = "Ravi",
+                                        text = callerName,
                                         color = Color(parsedTextColor),
                                         fontWeight = FontWeight.SemiBold,
                                         fontSize = (nameFontSize * 0.85f).sp, // Scaled for mockup
@@ -1229,6 +1334,21 @@ fun VideoEditDialog(
                                 .padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
+                            // Custom Caller Name Input
+                            Column {
+                                Text("Caller Name:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                androidx.compose.material3.OutlinedTextField(
+                                    value = callerName,
+                                    onValueChange = { callerName = it },
+                                    label = { Text("Enter name to display") },
+                                    placeholder = { Text("e.g., Ravi, Mom, Boss") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                            }
+
                             // Name Font Configuration
                             Column {
                                 Text("Caller Name Font:", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)

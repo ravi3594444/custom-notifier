@@ -131,6 +131,8 @@ class CallVideoActivity : ComponentActivity() {
         @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_NAME_POSITION_Y = "extra_name_position_y"
         @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
+        const val EXTRA_CALLER_NAME = "extra_caller_name"
+        @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_ANSWER_STYLE = "extra_answer_style"
         @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_NAME_FONT_SIZE = "extra_name_font_size"
@@ -147,6 +149,7 @@ class CallVideoActivity : ComponentActivity() {
 
     private var videoPath: String? = null
     private var videoDisplayName: String? = null
+    private var callerName: String? = null
     private var videoMimeType: String? = null
     private var trimStartMs: Long = -1L
     private var trimEndMs: Long = -1L
@@ -181,6 +184,7 @@ class CallVideoActivity : ComponentActivity() {
             isPreviewMode = config.isPreviewMode
             videoPath = config.videoPath
             videoDisplayName = config.videoDisplayName
+            callerName = config.callerName
             videoMimeType = config.videoMimeType
             trimStartMs = config.trimStartMs
             trimEndMs = config.trimEndMs
@@ -208,6 +212,8 @@ class CallVideoActivity : ComponentActivity() {
                 @Suppress("DEPRECATION")
                 intent.getStringExtra(EXTRA_VIDEO_DISPLAY_NAME) ?: "Incoming Call"
             }
+            @Suppress("DEPRECATION")
+            callerName = intent.getStringExtra(EXTRA_CALLER_NAME)
             @Suppress("DEPRECATION")
             videoMimeType = intent.getStringExtra(EXTRA_VIDEO_MIME_TYPE) ?: "video/*"
             @Suppress("DEPRECATION")
@@ -319,11 +325,12 @@ class CallVideoActivity : ComponentActivity() {
 
         // --- Render Compose UI --------------------------------------------
         val path = videoPath!!
-        val name = videoDisplayName ?: "Incoming Call"
+        // Use callerName if set, otherwise use videoDisplayName, fallback to "Incoming Call"
+        val displayNameForCall = callerName?.takeIf { it.isNotBlank() } ?: videoDisplayName ?: "Incoming Call"
         setContent {
             CallVideoScreen(
                 videoPath = path,
-                videoDisplayName = name,
+                videoDisplayName = displayNameForCall,
                 trimStartMs = trimStartMs,
                 trimEndMs = trimEndMs,
                 customAudioPath = customAudioPath,

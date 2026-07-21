@@ -56,6 +56,8 @@ data class SavedVideo(
     val videoScale: Float? = null,
     /** Optional position for the name from 0.0 (top) to 1.0 (bottom). */
     val namePositionY: Float? = null,
+    /** Optional custom caller name to display on incoming call (e.g., "Ravi" or "Incoming Call"). */
+    val callerName: String? = null,
     /** Optional answer style: "swipe" or "buttons". */
     val answerStyle: String? = null,
     /** Optional font size for the caller name in sp. */
