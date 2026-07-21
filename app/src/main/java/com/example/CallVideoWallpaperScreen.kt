@@ -1,6 +1,7 @@
 package com.example
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -244,6 +245,57 @@ fun CallVideoWallpaperScreen(
             )
         }
 
+        // --- Full-Screen Intent warning (Android 14+) -----------------
+        // On Android 14+ (API 34+), USE_FULL_SCREEN_INTENT is a special
+        // permission that must be granted via system Settings — it's not
+        // a normal runtime permission. The manifest declares it (so the
+        // app is *eligible* to use full-screen intents), but the OS only
+        // auto-grants it for messaging/phone apps. Custom Notifier is
+        // neither, so the user has to flip the switch manually.
+        //
+        // We launch the activity directly from the receiver (not via a
+        // notification full-screen intent), so FSI may not be strictly
+        // required — but the manifest still declares it, which misleads
+        // users and reviewers. We show this card so the user knows to
+        // grant it if they want maximum reliability.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // NotificationManager.canUseFullScreenIntent() is the canonical
+            // way to check if the app holds the USE_FULL_SCREEN_INTENT
+            // permission on API 34+. If not granted, show a card with a
+            // deep-link to the Settings page so the user can flip the switch.
+            val fsiGranted = try {
+                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+                nm.canUseFullScreenIntent()
+            } catch (_: Exception) { false }
+            if (!fsiGranted) {
+                FullScreenIntentWarningCard(
+                    onOpenSettings = {
+                        try {
+                            val intent = android.content.Intent(
+                                android.provider.Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT
+                            ).apply {
+                                data = android.net.Uri.parse("package:${context.packageName}")
+                                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            // Some OEMs don't expose this Settings action.
+                            // Fall back to the generic app details page.
+                            try {
+                                val fallback = android.content.Intent(
+                                    android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                                ).apply {
+                                    data = android.net.Uri.parse("package:${context.packageName}")
+                                    flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                                }
+                                context.startActivity(fallback)
+                            } catch (_: Exception) {}
+                        }
+                    }
+                )
+            }
+        }
+
         // --- Upload button ---------------------------------------------
         Button(
             onClick = {
@@ -378,6 +430,57 @@ private fun PermissionWarningCard(onRequest: () -> Unit) {
                 )
             ) {
                 Text("Grant permissions", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+/**
+ * Warning card shown on Android 14+ when USE_FULL_SCREEN_INTENT permission
+ * is not granted. Tapping the button opens the system Settings page where
+ * the user can flip the switch.
+ *
+ * On Android 14+ this is a *special* permission — it can't be requested via
+ * the normal runtime permission flow. The user has to grant it via Settings.
+ * The manifest declares it (so the app is eligible), but the OS only auto-
+ * grants it for messaging/phone apps. Custom Notifier is neither, so the
+ * user has to do this manually.
+ *
+ * Note: because we launch CallVideoActivity directly from the receiver
+ * (not via a notification full-screen intent), this permission may not be
+ * strictly required for the feature to work — but the manifest still
+ * declares it, and some OEM ROMs do gate receiver-launched activities on
+ * it. Showing this card lets the user grant it for maximum reliability.
+ */
+@Composable
+private fun FullScreenIntentWarningCard(onOpenSettings: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.4f)
+        ),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = "Full-screen permission recommended",
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onTertiaryContainer
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "On Android 14+, apps need the 'Display over other apps' / full-screen intent permission to reliably show the call video over the lockscreen. Tap below to grant it in Settings.",
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.85f)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onOpenSettings,
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("Open Settings", fontWeight = FontWeight.Bold)
             }
         }
     }
