@@ -69,20 +69,10 @@ class CallVideoReceiver : BroadcastReceiver() {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or
                         Intent.FLAG_ACTIVITY_CLEAR_TOP or
                         Intent.FLAG_ACTIVITY_SINGLE_TOP
-                putExtra(CallVideoActivity.EXTRA_VIDEO_PATH, activeVideo.localFilePath)
-                putExtra(CallVideoActivity.EXTRA_VIDEO_DISPLAY_NAME, activeVideo.displayName)
-                putExtra(CallVideoActivity.EXTRA_VIDEO_MIME_TYPE, activeVideo.mimeType)
-                if (activeVideo.trimStartMs != null) putExtra(CallVideoActivity.EXTRA_TRIM_START_MS, activeVideo.trimStartMs)
-                if (activeVideo.trimEndMs != null) putExtra(CallVideoActivity.EXTRA_TRIM_END_MS, activeVideo.trimEndMs)
-                if (activeVideo.customAudioPath != null) putExtra(CallVideoActivity.EXTRA_CUSTOM_AUDIO_PATH, activeVideo.customAudioPath)
-                if (activeVideo.videoScale != null) putExtra(CallVideoActivity.EXTRA_VIDEO_SCALE, activeVideo.videoScale)
-                if (activeVideo.namePositionY != null) putExtra(CallVideoActivity.EXTRA_NAME_POSITION_Y, activeVideo.namePositionY)
-                if (activeVideo.answerStyle != null) putExtra(CallVideoActivity.EXTRA_ANSWER_STYLE, activeVideo.answerStyle)
-                if (activeVideo.nameFontSize != null) putExtra(CallVideoActivity.EXTRA_NAME_FONT_SIZE, activeVideo.nameFontSize)
-                if (activeVideo.nameFontFamily != null) putExtra(CallVideoActivity.EXTRA_NAME_FONT_FAMILY, activeVideo.nameFontFamily)
-                if (activeVideo.nameTextColor != null) putExtra(CallVideoActivity.EXTRA_NAME_TEXT_COLOR, activeVideo.nameTextColor)
-                if (activeVideo.nameBgColor != null) putExtra(CallVideoActivity.EXTRA_NAME_BG_COLOR, activeVideo.nameBgColor)
-                if (activeVideo.videoFilter != null) putExtra(CallVideoActivity.EXTRA_VIDEO_FILTER, activeVideo.videoFilter)
+                // Single Parcelable extra — see CallVideoConfig for the full
+                // field list. Adding a new customization is now a one-line
+                // change to CallVideoConfig instead of touching 5 files.
+                putExtra(CallVideoActivity.EXTRA_CONFIG, activeVideo.toCallVideoConfig())
             }
             context.startActivity(launchIntent)
             Log.d(TAG, "Launched CallVideoActivity for video: ${activeVideo.displayName}")

@@ -324,20 +324,8 @@ fun CallVideoWallpaperScreen(
                         onTestCall = {
                             viewModel.stopVideoPreview()
                             val intent = android.content.Intent(context, CallVideoActivity::class.java).apply {
-                                putExtra(CallVideoActivity.EXTRA_VIDEO_PATH, video.localFilePath)
-                                putExtra(CallVideoActivity.EXTRA_VIDEO_DISPLAY_NAME, "Ravi")
-                                putExtra(CallVideoActivity.EXTRA_VIDEO_MIME_TYPE, video.mimeType)
-                                putExtra(CallVideoActivity.EXTRA_IS_PREVIEW_MODE, true)
-                                if (video.trimStartMs != null) putExtra(CallVideoActivity.EXTRA_TRIM_START_MS, video.trimStartMs)
-                                if (video.trimEndMs != null) putExtra(CallVideoActivity.EXTRA_TRIM_END_MS, video.trimEndMs)
-                                if (video.customAudioPath != null) putExtra(CallVideoActivity.EXTRA_CUSTOM_AUDIO_PATH, video.customAudioPath)
-                                if (video.videoScale != null) putExtra(CallVideoActivity.EXTRA_VIDEO_SCALE, video.videoScale)
-                                if (video.namePositionY != null) putExtra(CallVideoActivity.EXTRA_NAME_POSITION_Y, video.namePositionY)
-                                if (video.answerStyle != null) putExtra(CallVideoActivity.EXTRA_ANSWER_STYLE, video.answerStyle)
-                                if (video.nameFontSize != null) putExtra(CallVideoActivity.EXTRA_NAME_FONT_SIZE, video.nameFontSize)
-                                if (video.nameFontFamily != null) putExtra(CallVideoActivity.EXTRA_NAME_FONT_FAMILY, video.nameFontFamily)
-                                if (video.nameTextColor != null) putExtra(CallVideoActivity.EXTRA_NAME_TEXT_COLOR, video.nameTextColor)
-                                if (video.nameBgColor != null) putExtra(CallVideoActivity.EXTRA_NAME_BG_COLOR, video.nameBgColor)
+                                // Single Parcelable extra — see CallVideoConfig.
+                                putExtra(CallVideoActivity.EXTRA_CONFIG, video.toCallVideoConfigPreview())
                             }
                             context.startActivity(intent)
                         },

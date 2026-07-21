@@ -99,20 +99,44 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 class CallVideoActivity : ComponentActivity() {
 
     companion object {
+        /**
+         * Single Parcelable extra that carries all call-video configuration
+         * (path, trim, styling, etc.). Replaces the 15 individual EXTRA_*
+         * strings below — those are kept as @Deprecated aliases so any
+         * caller that hasn't been migrated yet still works, but new code
+         * should use EXTRA_CONFIG + CallVideoConfig.
+         */
+        const val EXTRA_CONFIG = "extra_call_video_config"
+
+        @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_VIDEO_PATH = "extra_video_path"
+        @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_VIDEO_DISPLAY_NAME = "extra_video_display_name"
+        @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_VIDEO_MIME_TYPE = "extra_video_mime_type"
+        @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_IS_PREVIEW_MODE = "extra_is_preview_mode"
+        @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_TRIM_START_MS = "extra_trim_start_ms"
+        @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_TRIM_END_MS = "extra_trim_end_ms"
+        @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_CUSTOM_AUDIO_PATH = "extra_custom_audio_path"
+        @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_VIDEO_SCALE = "extra_video_scale"
+        @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_NAME_POSITION_Y = "extra_name_position_y"
+        @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_ANSWER_STYLE = "extra_answer_style"
+        @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_NAME_FONT_SIZE = "extra_name_font_size"
+        @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_NAME_FONT_FAMILY = "extra_name_font_family"
+        @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_NAME_TEXT_COLOR = "extra_name_text_color"
+        @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_NAME_BG_COLOR = "extra_name_bg_color"
+        @Deprecated("Use EXTRA_CONFIG + CallVideoConfig instead", ReplaceWith("EXTRA_CONFIG"))
         const val EXTRA_VIDEO_FILTER = "extra_video_filter"
         private const val TAG = "CallVideoActivity"
     }
@@ -138,7 +162,73 @@ class CallVideoActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        isPreviewMode = intent.getBooleanExtra(EXTRA_IS_PREVIEW_MODE, false)
+        // --- Read configuration from the intent ---------------------------
+        // Prefer the single EXTRA_CONFIG Parcelable (B1 refactor). Fall back
+        // to the legacy individual extras if a caller hasn't been migrated
+        // yet (the EXTRA_* constants are @Deprecated but still functional).
+        val config: CallVideoConfig? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(EXTRA_CONFIG, CallVideoConfig::class.java)
+        } else {
+            @Suppress("DEPRECATION", "DEPRECATION")
+            intent.getParcelableExtra<CallVideoConfig>(EXTRA_CONFIG)
+        }
+
+        if (config != null) {
+            isPreviewMode = config.isPreviewMode
+            videoPath = config.videoPath
+            videoDisplayName = config.videoDisplayName
+            videoMimeType = config.videoMimeType
+            trimStartMs = config.trimStartMs
+            trimEndMs = config.trimEndMs
+            customAudioPath = config.customAudioPath
+            videoScale = config.videoScale
+            namePositionY = config.namePositionY
+            answerStyle = config.answerStyle
+            nameFontSize = config.nameFontSize
+            nameFontFamily = config.nameFontFamily
+            nameTextColor = config.nameTextColor
+            nameBgColor = config.nameBgColor
+            videoFilter = config.videoFilter
+        } else {
+            // Legacy path: read individual extras. Kept so older callers
+            // (e.g. an older build of the app that's still installed, or
+            // external triggers) still work. All EXTRA_* constants are
+            // @Deprecated — new code should use EXTRA_CONFIG.
+            @Suppress("DEPRECATION")
+            isPreviewMode = intent.getBooleanExtra(EXTRA_IS_PREVIEW_MODE, false)
+            @Suppress("DEPRECATION")
+            videoPath = intent.getStringExtra(EXTRA_VIDEO_PATH)
+            videoDisplayName = if (isPreviewMode) {
+                "Ravi"
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getStringExtra(EXTRA_VIDEO_DISPLAY_NAME) ?: "Incoming Call"
+            }
+            @Suppress("DEPRECATION")
+            videoMimeType = intent.getStringExtra(EXTRA_VIDEO_MIME_TYPE) ?: "video/*"
+            @Suppress("DEPRECATION")
+            trimStartMs = intent.getLongExtra(EXTRA_TRIM_START_MS, -1L)
+            @Suppress("DEPRECATION")
+            trimEndMs = intent.getLongExtra(EXTRA_TRIM_END_MS, -1L)
+            @Suppress("DEPRECATION")
+            customAudioPath = intent.getStringExtra(EXTRA_CUSTOM_AUDIO_PATH)
+            @Suppress("DEPRECATION")
+            videoScale = intent.getFloatExtra(EXTRA_VIDEO_SCALE, 1.0f)
+            @Suppress("DEPRECATION")
+            namePositionY = intent.getFloatExtra(EXTRA_NAME_POSITION_Y, 0.1f)
+            @Suppress("DEPRECATION")
+            answerStyle = intent.getStringExtra(EXTRA_ANSWER_STYLE) ?: "swipe"
+            @Suppress("DEPRECATION")
+            nameFontSize = intent.getFloatExtra(EXTRA_NAME_FONT_SIZE, 15f)
+            @Suppress("DEPRECATION")
+            nameFontFamily = intent.getStringExtra(EXTRA_NAME_FONT_FAMILY) ?: "sans-serif"
+            @Suppress("DEPRECATION")
+            nameTextColor = intent.getIntExtra(EXTRA_NAME_TEXT_COLOR, android.graphics.Color.WHITE)
+            @Suppress("DEPRECATION")
+            nameBgColor = intent.getIntExtra(EXTRA_NAME_BG_COLOR, android.graphics.Color.parseColor("#80000000"))
+            @Suppress("DEPRECATION")
+            videoFilter = intent.getStringExtra(EXTRA_VIDEO_FILTER) ?: "normal"
+        }
 
         // --- Lockscreen / wake flags --------------------------------------
         // Show over the lockscreen and turn the screen on when the activity
@@ -186,26 +276,6 @@ class CallVideoActivity : ComponentActivity() {
         // will letterbox landscape videos inside the portrait frame.)
         @Suppress("DEPRECATION")
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-
-        // --- Read extras --------------------------------------------------
-        videoPath = intent.getStringExtra(EXTRA_VIDEO_PATH)
-        videoDisplayName = if (isPreviewMode) {
-            "Ravi"
-        } else {
-            intent.getStringExtra(EXTRA_VIDEO_DISPLAY_NAME) ?: "Incoming Call"
-        }
-        videoMimeType = intent.getStringExtra(EXTRA_VIDEO_MIME_TYPE) ?: "video/*"
-        trimStartMs = intent.getLongExtra(EXTRA_TRIM_START_MS, -1L)
-        trimEndMs = intent.getLongExtra(EXTRA_TRIM_END_MS, -1L)
-        customAudioPath = intent.getStringExtra(EXTRA_CUSTOM_AUDIO_PATH)
-        videoScale = intent.getFloatExtra(EXTRA_VIDEO_SCALE, 1.0f)
-        namePositionY = intent.getFloatExtra(EXTRA_NAME_POSITION_Y, 0.1f)
-        answerStyle = intent.getStringExtra(EXTRA_ANSWER_STYLE) ?: "swipe"
-        nameFontSize = intent.getFloatExtra(EXTRA_NAME_FONT_SIZE, 15f)
-        nameFontFamily = intent.getStringExtra(EXTRA_NAME_FONT_FAMILY) ?: "sans-serif"
-        nameTextColor = intent.getIntExtra(EXTRA_NAME_TEXT_COLOR, android.graphics.Color.WHITE)
-        nameBgColor = intent.getIntExtra(EXTRA_NAME_BG_COLOR, android.graphics.Color.parseColor("#80000000"))
-        videoFilter = intent.getStringExtra(EXTRA_VIDEO_FILTER) ?: "normal"
 
         if (videoPath == null || !File(videoPath).exists()) {
             Log.e(TAG, "Video path missing or file does not exist: $videoPath")
