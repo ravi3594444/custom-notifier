@@ -38,7 +38,7 @@ class CallInCallService : InCallService() {
         
         // Register for call state changes
         call.registerCallback(object : Call.Callback() {
-            override fun onCallStateChanged(call: Call, state: Int) {
+            override fun onStateChanged(call: Call, state: Int) {
                 Log.d(TAG, "Call state changed: $state")
                 when (state) {
                     Call.STATE_ACTIVE -> {
